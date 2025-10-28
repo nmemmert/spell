@@ -197,7 +197,7 @@ const gameResults = ref<Array<{
 }>>([])
 const showResults = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
   const wordlistId = route.query.wordlist as string
   const mode = route.query.mode as string
 
@@ -209,7 +209,7 @@ onMounted(() => {
   }
 
   if (wordlistId) {
-    const wordlist = wordlistStore.getWordlistById(parseInt(wordlistId))
+    const wordlist = await wordlistStore.getWordlistById(parseInt(wordlistId))
     if (wordlist) {
       // Check if student is assigned to this wordlist
       if (authStore.isStudent && !wordlist.assignedStudents.includes(authStore.user?.id || 0)) {

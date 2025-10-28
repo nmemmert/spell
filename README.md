@@ -5,6 +5,7 @@ A modern spelling practice application built with Vue 3, TypeScript, and Vite.
 ## Features
 
 - User authentication (login/register)
+- **Cross-Device Data Persistence**: SQLite database with volume mounting for persistent storage
 - Spelling practice games with spaced repetition
 - **Wordlist Management**: Teachers can create and assign wordlists to students
 - **AWANA T&T Bible Typing**: Practice all 35 Truth & Training verses (ESV Translation)
@@ -53,25 +54,65 @@ npm run preview
 
 ## Docker Deployment
 
-### Build and Run with Docker Compose
+### Production Deployment with Docker Compose
 ```bash
-# Build and start the application
+# Build and start the application in production
 docker-compose up --build
 
-# Or run in background
+# Or run in background (recommended for production)
 docker-compose up -d --build
+
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Stop the application
+docker-compose down
 ```
 
 ### Manual Docker Build
 ```bash
-# Build the image
-docker build -t spelling-hub .
+# Build the production image
+docker build -t spelling-hub:beta .
 
-# Run the container
-docker run -p 80:80 spelling-hub
+# Run the container with volume mount
+docker run -d \
+  --name spelling-hub \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  -e NODE_ENV=production \
+  spelling-hub:beta
 ```
 
-The application will be available at `http://localhost`.
+The application will be available at `http://localhost:3000`.
+
+### Docker Configuration
+- **Single Stage Build**: Node.js application with Express server and SQLite database
+- **SQLite Database**: File-based database with volume persistence (`./data:/app/data`)
+- **Volume Mount**: Database persists across container restarts and deployments
+- **Port 3000**: Application runs on port 3000 with both API and static file serving
+- **Cross-Device Persistence**: Any device accessing the container shares the same data
+
+## GitHub Releases
+
+### Beta Release (v0.0.0-beta)
+The application has been successfully containerized and released as a beta version on GitHub.
+
+**Release Features:**
+- ✅ Complete authentication system with role-based access (Admin/Teacher/Student)
+- ✅ **Cross-Device Data Persistence**: SQLite database with volume mounting
+- ✅ Wordlist management with student assignments
+- ✅ Dual game modes: Practice and Test with full wordlist completion
+- ✅ AWANA T&T Bible typing with all 35 ESV verses
+- ✅ Comprehensive gamification system with points, badges, and achievements
+- ✅ Progress tracking and analytics dashboard
+- ✅ Docker containerization for production deployment
+- ✅ PWA support for offline functionality
+
+**Data Persistence:** 🟢 Cross-device persistence with SQLite database and volume mounting
+**Deployment Status:** 🟢 Production-ready container with persistent database
 
 ## AWANA T&T Bible Typing
 
@@ -108,10 +149,35 @@ The spelling game uses wordlists that teachers create and assign to students:
 - If no wordlists are assigned, default practice words are provided
 - Teachers can access the Wordlists page to manage assignments
 
-- `src/views/` - Page components
-- `src/components/` - Reusable components
-- `src/router/` - Vue Router configuration
-- `public/` - Static assets
+## Data Persistence
+
+The application uses a SQLite database with volume mounting for **cross-device persistent storage**:
+
+### Architecture
+- **Backend API**: Express.js server with RESTful API endpoints
+- **Database**: SQLite with file-based storage in container volume
+- **Volume Mounting**: Database persists across container restarts and deployments
+- **Cross-Device Access**: Any device accessing the container shares the same data
+
+### What Gets Saved:
+- **User Accounts**: All registered users with their roles and information
+- **Wordlists**: Custom wordlists created by teachers, including student assignments
+- **Data Persistence**: Survives container restarts, updates, and server reboots
+
+### Volume Configuration:
+- **Mount Point**: `./data:/app/data` (host directory to container)
+- **Database Path**: `/app/data/app.db` inside container
+- **Backup**: Copy `./data/app.db` to backup the entire database
+
+### API Endpoints:
+- `GET /api/users` - Get all users
+- `POST /api/users` - Create new user
+- `PUT /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user
+- `GET /api/wordlists` - Get all wordlists
+- `POST /api/wordlists` - Create new wordlist
+- `PUT /api/wordlists/:id` - Update wordlist
+- `DELETE /api/wordlists/:id` - Delete wordlist
 
 ## Technologies Used
 

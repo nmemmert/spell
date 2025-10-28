@@ -20,8 +20,17 @@
           </div>
           <div>
             <label for="password" class="sr-only">Password</label>
-            <input id="password" v-model="password" name="password" type="password" autocomplete="new-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Password">
+            <input id="password" v-model="password" name="password" type="password" autocomplete="new-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Password">
             <span v-if="passwordError" class="text-red-500 text-sm">{{ passwordError }}</span>
+          </div>
+          <div>
+            <label for="role" class="sr-only">Role</label>
+            <select id="role" v-model="role" name="role" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="admin">Admin</option>
+            </select>
+            <span v-if="roleError" class="text-red-500 text-sm">{{ roleError }}</span>
           </div>
         </div>
 
@@ -44,18 +53,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore, type UserRole } from '../stores/auth'
 
 const router = useRouter()
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const role = ref<UserRole>('student')
 const nameError = ref('')
 const emailError = ref('')
 const passwordError = ref('')
+const roleError = ref('')
 
 const isFormValid = computed(() => {
-  return name.value && email.value && password.value && !nameError.value && !emailError.value && !passwordError.value
+  return name.value && email.value && password.value && role.value && !nameError.value && !emailError.value && !passwordError.value && !roleError.value
 })
 
 const validateName = () => {
@@ -88,21 +99,27 @@ const validatePassword = () => {
   }
 }
 
-const register = () => {
+const validateRole = () => {
+  if (!role.value) {
+    roleError.value = 'Role is required'
+  } else {
+    roleError.value = ''
+  }
+}
+
+const register = async () => {
   validateName()
   validateEmail()
   validatePassword()
+  validateRole()
   if (isFormValid.value) {
-    // Mock register - create a new user with student role
     const authStore = useAuthStore()
-    const newUser = {
-      id: Date.now(), // Simple ID generation
-      name: name.value,
-      email: email.value,
-      role: 'student' as const
+    const success = await authStore.register(email.value, name.value, password.value, role.value)
+    if (success) {
+      router.push('/dashboard')
+    } else {
+      // Error is handled by the auth store
     }
-    authStore.login(newUser, 'mock-token')
-    router.push('/dashboard')
   }
 }
 </script>

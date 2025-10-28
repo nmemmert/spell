@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore, type User } from '../stores/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const email = ref('')
@@ -71,25 +71,16 @@ const validatePassword = () => {
   }
 }
 
-const login = () => {
+const login = async () => {
   validateEmail()
   validatePassword()
   if (isFormValid.value) {
     const authStore = useAuthStore()
-
-    // Mock users with different roles
-    const mockUsers: Record<string, User> = {
-      'admin@school.edu': { id: 1, email: 'admin@school.edu', name: 'Admin User', role: 'admin' },
-      'teacher@school.edu': { id: 2, email: 'teacher@school.edu', name: 'Teacher User', role: 'teacher' },
-      'student@school.edu': { id: 3, email: 'student@school.edu', name: 'Student User', role: 'student' }
-    }
-
-    const user = mockUsers[email.value as keyof typeof mockUsers]
-    if (user) {
-      authStore.login(user, 'mock-token')
+    const success = await authStore.login(email.value, password.value)
+    if (success) {
       router.push('/dashboard')
     } else {
-      emailError.value = 'Invalid credentials'
+      // Error is handled by the auth store
     }
   }
 }

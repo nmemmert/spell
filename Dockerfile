@@ -1,5 +1,8 @@
-# Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+# Use Node.js 20 Alpine as base image
+FROM node:20-alpine
+
+# Install SQLite development libraries
+RUN apk add --no-cache sqlite-dev
 
 # Set working directory
 WORKDIR /app
@@ -7,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -16,17 +19,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Use nginx to serve the built application
-FROM nginx:alpine
+# Expose port
+EXPOSE 3000
 
-# Copy built application from previous stage
-COPY --from=0 /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expose port 80
-EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the server
+CMD ["npm", "start"]

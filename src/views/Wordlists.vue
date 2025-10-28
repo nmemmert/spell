@@ -72,7 +72,7 @@
               </p>
               <div v-if="wordlist.assignedStudents.length > 0" class="mt-1 flex flex-wrap gap-1">
                 <span v-for="studentId in wordlist.assignedStudents.slice(0, 3)" :key="studentId" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                  {{ getStudentName(studentId) }}
+                  {{ students.find(s => s.id === studentId)?.name || 'Unknown' }}
                 </span>
                 <span v-if="wordlist.assignedStudents.length > 3" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                   +{{ wordlist.assignedStudents.length - 3 }} more
@@ -173,10 +173,7 @@ const canPracticeWordlist = (wordlist: Wordlist) => {
   return authStore.isTeacher || authStore.isAdmin
 }
 
-const getStudentName = (studentId: number) => {
-  const student = usersStore.getUserById(studentId)
-  return student ? student.name : 'Unknown Student'
-}
+
 
 const saveWordlist = () => {
   const words = formData.value.wordsText.split('\n').map(w => w.trim()).filter(w => w)

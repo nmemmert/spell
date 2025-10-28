@@ -10,9 +10,13 @@ export interface User {
   role: UserRole
 }
 
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref(localStorage.getItem('token') || '')
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
 
   const isAuthenticated = computed(() => !!token.value)
   const userRole = computed(() => user.value?.role || null)
@@ -20,36 +24,99 @@ export const useAuthStore = defineStore('auth', () => {
   const isTeacher = computed(() => userRole.value === 'teacher' || userRole.value === 'admin')
   const isStudent = computed(() => userRole.value === 'student')
 
-  const login = (userData: User, authToken: string) => {
-    user.value = userData
-    token.value = authToken
-    localStorage.setItem('token', authToken)
-    localStorage.setItem('user', JSON.stringify(userData))
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Login failed')
+      }
+
+      const data = await response.json()
+      user.value = data.user
+      token.value = data.token
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Login failed'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const register = async (email: string, name: string, password: string, role: UserRole): Promise<boolean> => {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, password, role })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Registration failed')
+      }
+
+      const data = await response.json()
+      user.value = data.user
+      token.value = data.token
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Registration failed'
+      return false
+    } finally {
+      isLoading.value = false
+    }
   }
 
   const logout = () => {
     user.value = null
     token.value = ''
+    error.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('user')
   }
 
   const initializeAuth = () => {
     const savedUser = localStorage.getItem('user')
-    if (savedUser) {
+    const savedToken = localStorage.getItem('token')
+    if (savedUser && savedToken) {
       user.value = JSON.parse(savedUser)
+      token.value = savedToken
     }
   }
 
   return {
     user,
     token,
+    isLoading,
+    error,
     isAuthenticated,
     userRole,
     isAdmin,
     isTeacher,
     isStudent,
     login,
+    register,
     logout,
     initializeAuth
   }

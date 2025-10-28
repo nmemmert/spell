@@ -1,79 +1,121 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { User, UserRole } from './auth'
 
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+
 export const useUsersStore = defineStore('users', () => {
-  const users = ref<User[]>([
-    {
-      id: 1,
-      email: 'admin@school.edu',
-      name: 'Admin User',
-      role: 'admin'
-    },
-    {
-      id: 2,
-      email: 'teacher@school.edu',
-      name: 'Teacher User',
-      role: 'teacher'
-    },
-    {
-      id: 3,
-      email: 'student@school.edu',
-      name: 'Student User',
-      role: 'student'
-    },
-    {
-      id: 4,
-      email: 'student2@school.edu',
-      name: 'Student Two',
-      role: 'student'
+  const users = ref<User[]>([])
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+
+  // Load users from API
+  const loadUsers = async () => {
+    try {
+      isLoading.value = true
+      error.value = null
+      const response = await fetch(`${API_BASE}/api/users`)
+      if (!response.ok) throw new Error('Failed to fetch users')
+      users.value = await response.json()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to load users:', err)
+    } finally {
+      isLoading.value = false
     }
-  ])
-
-  const getUsers = () => users.value
-
-  const getUserById = (id: number) => users.value.find(user => user.id === id)
-
-  const addUser = (userData: Omit<User, 'id'>) => {
-    const newId = Math.max(...users.value.map(u => u.id)) + 1
-    const newUser: User = { ...userData, id: newId }
-    users.value.push(newUser)
-    return newUser
   }
 
-  const updateUser = (id: number, updates: Partial<Pick<User, 'email' | 'name' | 'role'>>) => {
-    const userIndex = users.value.findIndex(user => user.id === id)
-    if (userIndex !== -1) {
-      const currentUser = users.value[userIndex]!
-      users.value[userIndex] = {
-        id: currentUser.id,
-        email: updates.email ?? currentUser.email,
-        name: updates.name ?? currentUser.name,
-        role: updates.role ?? currentUser.role
+  const getUsers = () => {
+    if (users.value.length === 0 && !isLoading.value) {
+      loadUsers()
+    }
+    return users.value
+  }
+
+  const getUserById = async (id: number): Promise<User | undefined> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/users/${id}`)
+      if (!response.ok) {
+        if (response.status === 404) return undefined
+        throw new Error('Failed to fetch user')
       }
-      return users.value[userIndex]
+      return await response.json()
+    } catch (err) {
+      console.error('Failed to fetch user:', err)
+      return undefined
     }
-    return null
   }
 
-  const deleteUser = (id: number) => {
-    const userIndex = users.value.findIndex(user => user.id === id)
-    if (userIndex !== -1) {
-      users.value.splice(userIndex, 1)
+  const addUser = async (userData: Omit<User, 'id'>): Promise<User | null> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      if (!response.ok) throw new Error('Failed to create user')
+      const newUser = await response.json()
+      users.value.push(newUser)
+      return newUser
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to create user:', err)
+      return null
+    }
+  }
+
+  const updateUser = async (id: number, updates: Partial<Pick<User, 'email' | 'name' | 'role'>>): Promise<User | null> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      if (!response.ok) throw new Error('Failed to update user')
+
+      // Reload users to reflect changes
+      await loadUsers()
+
+      // Return the updated user
+      return users.value.find(u => u.id === id) || null
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to update user:', err)
+      return null
+    }
+  }
+
+  const deleteUser = async (id: number): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/users/${id}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete user')
+
+      // Remove from local array
+      users.value = users.value.filter(u => u.id !== id)
       return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to delete user:', err)
+      return false
     }
-    return false
   }
 
-  const getUsersByRole = (role: UserRole) => users.value.filter(user => user.role === role)
+  const getUsersByRole = (role: UserRole) => {
+    return getUsers().filter(user => user.role === role)
+  }
 
   return {
-    users,
+    users: computed(() => getUsers()),
+    isLoading: computed(() => isLoading.value),
+    error: computed(() => error.value),
     getUsers,
     getUserById,
     addUser,
     updateUser,
     deleteUser,
-    getUsersByRole
+    getUsersByRole,
+    loadUsers
   }
 })

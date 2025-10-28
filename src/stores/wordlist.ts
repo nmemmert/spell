@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 export interface Wordlist {
   id: number
@@ -11,149 +11,154 @@ export interface Wordlist {
   createdAt: Date
 }
 
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+
 export const useWordlistStore = defineStore('wordlist', () => {
-  const wordlists = ref<Wordlist[]>([
-    {
-      id: 1,
-      name: 'Basic Words',
-      description: 'Common everyday words for beginners',
-      words: ['apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grape', 'honey', 'ice', 'jam'],
-      assignedStudents: [3], // Student User ID
-      createdBy: 2, // Teacher User ID
-      createdAt: new Date('2025-10-01')
-    },
-    {
-      id: 2,
-      name: 'Advanced Vocabulary',
-      description: 'Challenging words for advanced learners',
-      words: ['ubiquitous', 'serendipity', 'ephemeral', 'quintessential', 'labyrinthine', 'perspicacious', 'pulchritude', 'ebullient', 'mellifluous', 'quiescent'],
-      assignedStudents: [],
-      createdBy: 2,
-      createdAt: new Date('2025-10-15')
-    },
-    {
-      id: 3,
-      name: 'Week 1: Colors & Shapes',
-      description: 'Basic colors and shapes vocabulary',
-      words: ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'circle', 'square', 'triangle', 'rectangle'],
-      assignedStudents: [3, 4], // Assign to multiple students
-      createdBy: 2,
-      createdAt: new Date('2025-10-20')
-    },
-    {
-      id: 4,
-      name: 'Week 2: Animals',
-      description: 'Common animal names',
-      words: ['dog', 'cat', 'bird', 'fish', 'horse', 'cow', 'pig', 'sheep', 'chicken', 'duck'],
-      assignedStudents: [3, 4],
-      createdBy: 2,
-      createdAt: new Date('2025-10-21')
-    },
-    {
-      id: 5,
-      name: 'Week 3: Family',
-      description: 'Family member vocabulary',
-      words: ['mother', 'father', 'brother', 'sister', 'grandmother', 'grandfather', 'aunt', 'uncle', 'cousin', 'baby'],
-      assignedStudents: [3, 4],
-      createdBy: 2,
-      createdAt: new Date('2025-10-22')
-    },
-    {
-      id: 6,
-      name: 'Week 4: Food',
-      description: 'Common food items',
-      words: ['bread', 'milk', 'cheese', 'butter', 'egg', 'rice', 'pasta', 'soup', 'salad', 'fruit'],
-      assignedStudents: [3, 4],
-      createdBy: 2,
-      createdAt: new Date('2025-10-23')
-    },
-    {
-      id: 7,
-      name: 'Week 5: Numbers',
-      description: 'Numbers and counting',
-      words: ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'],
-      assignedStudents: [3, 4],
-      createdBy: 2,
-      createdAt: new Date('2025-10-24')
+  const wordlists = ref<Wordlist[]>([])
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+
+  // Load wordlists from API
+  const loadWordlists = async () => {
+    try {
+      isLoading.value = true
+      error.value = null
+      const response = await fetch(`${API_BASE}/api/wordlists`)
+      if (!response.ok) throw new Error('Failed to fetch wordlists')
+      const data = await response.json()
+      wordlists.value = data.map((w: any) => ({
+        ...w,
+        createdAt: new Date(w.createdAt)
+      }))
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to load wordlists:', err)
+    } finally {
+      isLoading.value = false
     }
-  ])
+  }
 
-  const getWordlists = () => wordlists.value
+  const getWordlists = () => {
+    if (wordlists.value.length === 0 && !isLoading.value) {
+      loadWordlists()
+    }
+    return wordlists.value
+  }
 
-  const getWordlistById = (id: number) => {
-    return wordlists.value.find(wordlist => wordlist.id === id)
+  const getWordlistById = async (id: number): Promise<Wordlist | undefined> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/wordlists/${id}`)
+      if (!response.ok) {
+        if (response.status === 404) return undefined
+        throw new Error('Failed to fetch wordlist')
+      }
+      const data = await response.json()
+      return {
+        ...data,
+        createdAt: new Date(data.createdAt)
+      }
+    } catch (err) {
+      console.error('Failed to fetch wordlist:', err)
+      return undefined
+    }
   }
 
   const getWordlistsForStudent = (studentId: number) => {
-    return wordlists.value.filter(wordlist =>
+    return getWordlists().filter(wordlist =>
       wordlist.assignedStudents.includes(studentId)
     )
   }
 
   const getWordlistsByTeacher = (teacherId: number) => {
-    return wordlists.value.filter(wordlist => wordlist.createdBy === teacherId)
+    return getWordlists().filter(wordlist => wordlist.createdBy === teacherId)
   }
 
-  const addWordlist = (wordlistData: Omit<Wordlist, 'id' | 'createdAt'>) => {
-    const newWordlist: Wordlist = {
-      ...wordlistData,
-      id: Math.max(...wordlists.value.map(w => w.id), 0) + 1,
-      createdAt: new Date()
-    }
-    wordlists.value.push(newWordlist)
-    return newWordlist
-  }
-
-  const updateWordlist = (id: number, updates: Partial<Pick<Wordlist, 'name' | 'description' | 'words' | 'assignedStudents'>>) => {
-    const wordlistIndex = wordlists.value.findIndex(w => w.id === id)
-    if (wordlistIndex !== -1) {
-      const currentWordlist = wordlists.value[wordlistIndex]!
-      wordlists.value[wordlistIndex] = {
-        id: currentWordlist.id,
-        name: updates.name ?? currentWordlist.name,
-        description: updates.description ?? currentWordlist.description,
-        words: updates.words ?? currentWordlist.words,
-        assignedStudents: updates.assignedStudents ?? currentWordlist.assignedStudents,
-        createdBy: currentWordlist.createdBy,
-        createdAt: currentWordlist.createdAt
+  const addWordlist = async (wordlistData: Omit<Wordlist, 'id' | 'createdAt'>): Promise<Wordlist | null> => {
+    try {
+      const now = new Date()
+      const response = await fetch(`${API_BASE}/api/wordlists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...wordlistData,
+          createdAt: now.toISOString()
+        })
+      })
+      if (!response.ok) throw new Error('Failed to create wordlist')
+      const data = await response.json()
+      const wordlist: Wordlist = {
+        ...data,
+        createdAt: now
       }
-      return wordlists.value[wordlistIndex]
+      wordlists.value.push(wordlist)
+      return wordlist
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to create wordlist:', err)
+      return null
     }
-    return null
   }
 
-  const deleteWordlist = (id: number) => {
-    const index = wordlists.value.findIndex(w => w.id === id)
-    if (index !== -1) {
-      wordlists.value.splice(index, 1)
+  const updateWordlist = async (id: number, updates: Partial<Pick<Wordlist, 'name' | 'description' | 'words' | 'assignedStudents'>>): Promise<Wordlist | null> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/wordlists/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      if (!response.ok) throw new Error('Failed to update wordlist')
+
+      // Reload wordlists to reflect changes
+      await loadWordlists()
+
+      // Return the updated wordlist
+      return wordlists.value.find(w => w.id === id) || null
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to update wordlist:', err)
+      return null
+    }
+  }
+
+  const deleteWordlist = async (id: number): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/wordlists/${id}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete wordlist')
+
+      // Remove from local array
+      wordlists.value = wordlists.value.filter(w => w.id !== id)
       return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error'
+      console.error('Failed to delete wordlist:', err)
+      return false
     }
-    return false
   }
 
-  const assignWordlistToStudent = (wordlistId: number, studentId: number) => {
+  const assignWordlistToStudent = async (wordlistId: number, studentId: number): Promise<boolean> => {
     const wordlist = wordlists.value.find(w => w.id === wordlistId)
     if (wordlist && !wordlist.assignedStudents.includes(studentId)) {
-      wordlist.assignedStudents.push(studentId)
-      return true
+      const newAssignedStudents = [...wordlist.assignedStudents, studentId]
+      return (await updateWordlist(wordlistId, { assignedStudents: newAssignedStudents })) !== null
     }
     return false
   }
 
-  const unassignWordlistFromStudent = (wordlistId: number, studentId: number) => {
+  const unassignWordlistFromStudent = async (wordlistId: number, studentId: number): Promise<boolean> => {
     const wordlist = wordlists.value.find(w => w.id === wordlistId)
     if (wordlist) {
-      const index = wordlist.assignedStudents.indexOf(studentId)
-      if (index !== -1) {
-        wordlist.assignedStudents.splice(index, 1)
-        return true
-      }
+      const newAssignedStudents = wordlist.assignedStudents.filter(id => id !== studentId)
+      return (await updateWordlist(wordlistId, { assignedStudents: newAssignedStudents })) !== null
     }
     return false
   }
 
   return {
-    wordlists,
+    wordlists: computed(() => getWordlists()),
+    isLoading: computed(() => isLoading.value),
+    error: computed(() => error.value),
     getWordlists,
     getWordlistById,
     getWordlistsForStudent,
@@ -162,6 +167,7 @@ export const useWordlistStore = defineStore('wordlist', () => {
     updateWordlist,
     deleteWordlist,
     assignWordlistToStudent,
-    unassignWordlistFromStudent
+    unassignWordlistFromStudent,
+    loadWordlists
   }
 })
