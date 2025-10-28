@@ -97,18 +97,13 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Manual Docker Build
+### Pull from GitHub Container Registry
 ```bash
-# Build the production image
-docker build -t spelling-hub:beta .
+# Pull the pre-built container
+docker pull ghcr.io/nmemmert/spell:latest
 
-# Run the container with volume mount
-docker run -d \
-  --name spelling-hub \
-  -p 3000:3000 \
-  -v ./data:/app/data \
-  -e NODE_ENV=production \
-  spelling-hub:beta
+# Run with data persistence
+docker run -p 3000:3000 -v spell-data:/app/data ghcr.io/nmemmert/spell:latest
 ```
 
 The application will be available at `http://localhost:3000`.
