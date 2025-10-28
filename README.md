@@ -4,7 +4,7 @@ A modern spelling practice application built with Vue 3, TypeScript, and Vite.
 
 ## Features
 
-- User authentication (login/register)
+- **Secure Authentication**: Password-based login with bcrypt hashing and role-based access
 - **Cross-Device Data Persistence**: SQLite database with volume mounting for persistent storage
 - Spelling practice games with spaced repetition
 - **Wordlist Management**: Teachers can create and assign wordlists to students
@@ -15,6 +15,31 @@ A modern spelling practice application built with Vue 3, TypeScript, and Vite.
 - Admin panel for user management
 - Progressive Web App (PWA) support
 - Responsive design
+
+## Authentication
+
+The application uses secure password-based authentication with role-based access control.
+
+### Default Users
+The application comes pre-configured with the following default users:
+
+| Email | Password | Role | Description |
+|-------|----------|------|-------------|
+| `admin@school.edu` | `password123` | Admin | Full system access, user management |
+| `teacher@school.edu` | `password123` | Teacher | Create wordlists, assign to students, view progress |
+| `student@school.edu` | `password123` | Student | Practice spelling, Bible typing, view personal progress |
+| `student2@school.edu` | `password123` | Student | Additional student account for testing |
+
+### User Roles
+- **Admin**: Complete system access including user management and all features
+- **Teacher**: Create and manage wordlists, assign to students, monitor progress
+- **Student**: Access assigned wordlists, practice games, Bible typing, view achievements
+
+### Security Features
+- Passwords are hashed using bcrypt with salt rounds
+- Secure API endpoints for authentication
+- Session persistence across browser restarts
+- Role-based access control throughout the application
 
 ## Getting Started
 
