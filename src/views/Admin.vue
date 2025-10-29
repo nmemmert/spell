@@ -271,13 +271,16 @@ import { ref, computed } from 'vue'
 import { useUsersStore } from '../stores/users'
 import { useGamificationStore } from '../stores/gamification'
 import { useSpacedRepetitionStore } from '../stores/spacedRepetition'
+import { useAuthStore } from '../stores/auth'
 import type { User, UserRole } from '../stores/auth'
 
 const usersStore = useUsersStore()
 const gamificationStore = useGamificationStore()
 const spacedRepetitionStore = useSpacedRepetitionStore()
+const authStore = useAuthStore()
 const users = computed(() => usersStore.getUsers())
 const getUsersByRole = (role: UserRole) => usersStore.getUsersByRole(role)
+const currentUser = computed(() => authStore.user)
 
 const showAddUserModal = ref(false)
 const editingUser = ref<User | null>(null)
@@ -328,7 +331,16 @@ const editUser = (user: User) => {
 }
 
 const deleteUser = (userId: number) => {
-  if (confirm('Are you sure you want to delete this user?')) {
+  const userToDelete = users.value.find(u => u.id === userId)
+  if (!userToDelete) return
+
+  // Prevent deleting the current user
+  if (userToDelete.id === currentUser.value?.id) {
+    alert('You cannot delete your own account.')
+    return
+  }
+
+  if (confirm(`Are you sure you want to delete ${userToDelete.name}?`)) {
     usersStore.deleteUser(userId)
   }
 }
@@ -386,6 +398,7 @@ const confirmReset = () => {
   // Reset gamification data
   if (resetOptions.value.gamification) {
     gamificationStore.resetGamification()
+    gamificationStore.resetLeaderboard()
   }
 
   // Reset analytics data (currently stored in localStorage/sessionStorage)
@@ -412,6 +425,9 @@ const resetAnalyticsData = () => {
   localStorage.removeItem('analytics_difficulty_data')
   localStorage.removeItem('analytics_session_data')
   localStorage.removeItem('analytics_streak_data')
+
+  // Dispatch custom event to notify analytics component
+  window.dispatchEvent(new CustomEvent('analytics-reset'))
 }
 </script>
 

@@ -169,6 +169,12 @@ export const useGamificationStore = defineStore('gamification', () => {
     experienceToNext.value = 100
   }
 
+  const resetLeaderboard = () => {
+    // For now, this is a mock leaderboard, so resetting it means
+    // the current user will appear at the bottom with 0 points
+    // The mock users remain as they represent "other players"
+  }
+
   return {
     points,
     level,
@@ -184,6 +190,7 @@ export const useGamificationStore = defineStore('gamification', () => {
     checkAchievements,
     getLeaderboard,
     resetAchievements,
-    resetGamification
+    resetGamification,
+    resetLeaderboard
   }
 })
