@@ -121,6 +121,8 @@ import {
   Legend,
 } from 'chart.js'
 import { Line, Bar, Doughnut } from 'vue-chartjs'
+import { useAnalyticsStore } from '../stores/analytics'
+import { useAuthStore } from '../stores/auth'
 
 ChartJS.register(
   CategoryScale,
@@ -134,76 +136,18 @@ ChartJS.register(
   Legend
 )
 
-// Load data from localStorage or use defaults
-const totalSessions = ref(parseInt(localStorage.getItem('analytics_sessions') || '45'))
-const averageAccuracy = ref(parseInt(localStorage.getItem('analytics_accuracy') || '78'))
-const averageSessionTime = ref(parseInt(localStorage.getItem('analytics_session_time') || '12'))
-const masteredWords = ref(parseInt(localStorage.getItem('analytics_mastered_words') || '234'))
+const analyticsStore = useAnalyticsStore()
+const authStore = useAuthStore()
 
-const progressData = ref(JSON.parse(localStorage.getItem('analytics_progress_data') || JSON.stringify({
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-  datasets: [
-    {
-      label: 'Accuracy %',
-      data: [65, 70, 75, 80, 78, 82],
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      tension: 0.4,
-    },
-    {
-      label: 'Words Learned',
-      data: [20, 45, 78, 120, 156, 190],
-      borderColor: 'rgb(16, 185, 129)',
-      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-      tension: 0.4,
-    },
-  ],
-})))
-
-const difficultyData = ref(JSON.parse(localStorage.getItem('analytics_difficulty_data') || JSON.stringify({
-  labels: ['Easy', 'Medium', 'Hard', 'Very Hard'],
-  datasets: [
-    {
-      data: [45, 30, 20, 5],
-      backgroundColor: [
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-      ],
-      borderWidth: 1,
-    },
-  ],
-})))
-
-const sessionData = ref(JSON.parse(localStorage.getItem('analytics_session_data') || JSON.stringify({
-  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  datasets: [
-    {
-      label: 'Words Practiced',
-      data: [25, 30, 20, 35, 28, 15, 22],
-      backgroundColor: 'rgba(59, 130, 246, 0.8)',
-    },
-    {
-      label: 'Correct Answers',
-      data: [20, 25, 18, 30, 24, 12, 18],
-      backgroundColor: 'rgba(16, 185, 129, 0.8)',
-    },
-  ],
-})))
-
-const streakData = ref(JSON.parse(localStorage.getItem('analytics_streak_data') || JSON.stringify({
-  labels: Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`),
-  datasets: [
-    {
-      label: 'Daily Streak',
-      data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 10) + 1),
-      borderColor: 'rgb(168, 85, 247)',
-      backgroundColor: 'rgba(168, 85, 247, 0.1)',
-      tension: 0.4,
-    },
-  ],
-})))
+// Use reactive refs from the store
+const totalSessions = analyticsStore.totalSessions
+const averageAccuracy = analyticsStore.averageAccuracy
+const averageSessionTime = analyticsStore.averageSessionTime
+const masteredWords = analyticsStore.masteredWords
+const progressData = analyticsStore.progressData
+const difficultyData = analyticsStore.difficultyData
+const sessionData = analyticsStore.sessionData
+const streakData = analyticsStore.streakData
 
 const chartOptions = ref({
   responsive: true,
@@ -245,89 +189,15 @@ const streakOptions = ref({
 
 onMounted(() => {
   // Load real analytics data here
-  loadAnalyticsData()
+  if (authStore.user) {
+    analyticsStore.loadAnalyticsData(authStore.user.id)
+  }
 
   // Listen for reset events
   window.addEventListener('analytics-reset', () => {
-    resetAnalyticsToDefaults()
+    analyticsStore.resetAnalyticsData()
   })
 })
-
-const loadAnalyticsData = () => {
-  // Data is already loaded from localStorage in the ref initializers
-}
-
-const resetAnalyticsToDefaults = () => {
-  totalSessions.value = 45
-  averageAccuracy.value = 78
-  averageSessionTime.value = 12
-  masteredWords.value = 234
-
-  progressData.value = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Accuracy %',
-        data: [65, 70, 75, 80, 78, 82],
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4,
-      },
-      {
-        label: 'Words Learned',
-        data: [20, 45, 78, 120, 156, 190],
-        borderColor: 'rgb(16, 185, 129)',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4,
-      },
-    ],
-  }
-
-  difficultyData.value = {
-    labels: ['Easy', 'Medium', 'Hard', 'Very Hard'],
-    datasets: [
-      {
-        data: [45, 30, 20, 5],
-        backgroundColor: [
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  }
-
-  sessionData.value = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Words Practiced',
-        data: [25, 30, 20, 35, 28, 15, 22],
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-      },
-      {
-        label: 'Correct Answers',
-        data: [20, 25, 18, 30, 24, 12, 18],
-        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-      },
-    ],
-  }
-
-  streakData.value = {
-    labels: Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`),
-    datasets: [
-      {
-        label: 'Daily Streak',
-        data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 10) + 1),
-        borderColor: 'rgb(168, 85, 247)',
-        backgroundColor: 'rgba(168, 85, 247, 0.1)',
-        tension: 0.4,
-      },
-    ],
-  }
-}
 </script>
 
 <style scoped>

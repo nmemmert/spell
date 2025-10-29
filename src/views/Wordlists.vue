@@ -25,7 +25,7 @@
             <label for="words" class="block text-sm font-medium text-gray-700">Words (one per line)</label>
             <textarea v-model="formData.wordsText" id="words" rows="5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="apple&#10;banana&#10;cherry"></textarea>
           </div>
-          <div v-if="authStore.isTeacher">
+          <div v-if="authStore.isTeacher || authStore.isAdmin">
             <label class="block text-sm font-medium text-gray-700 mb-2">Assign to Students</label>
             <div class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
               <div v-for="student in students" :key="student.id" class="flex items-center">
@@ -66,7 +66,7 @@
             <p class="mt-1 text-sm text-gray-500">{{ wordlist.description }}</p>
 
             <!-- Student Assignment Info -->
-            <div v-if="authStore.isTeacher" class="mt-2">
+            <div v-if="authStore.isTeacher || authStore.isAdmin" class="mt-2">
               <p class="text-xs text-gray-500">
                 Assigned to: {{ wordlist.assignedStudents.length }} student{{ wordlist.assignedStudents.length !== 1 ? 's' : '' }}
               </p>
@@ -96,14 +96,14 @@
                 Test
               </button>
               <button
-                v-if="authStore.isTeacher && wordlist.createdBy === authStore.user?.id"
+                v-if="authStore.isTeacher || authStore.isAdmin"
                 @click="editWordlist(wordlist)"
                 class="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
               >
                 Edit
               </button>
               <button
-                v-if="authStore.isTeacher && wordlist.createdBy === authStore.user?.id"
+                v-if="authStore.isTeacher || authStore.isAdmin"
                 @click="deleteWordlist(wordlist.id)"
                 class="inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50"
               >
@@ -154,11 +154,8 @@ const displayWordlists = computed(() => {
   if (authStore.isStudent) {
     // Students see only assigned wordlists
     return wordlistStore.getWordlistsForStudent(authStore.user?.id || 0)
-  } else if (authStore.isTeacher) {
-    // Teachers see wordlists they created
-    return wordlistStore.getWordlistsByTeacher(authStore.user?.id || 0)
-  } else if (authStore.isAdmin) {
-    // Admins see all wordlists
+  } else if (authStore.isTeacher || authStore.isAdmin) {
+    // Teachers and admins see all wordlists
     return wordlistStore.getWordlists()
   }
   return []

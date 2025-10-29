@@ -16,6 +16,11 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
+// Test route
+app.get('/test', (req, res) => {
+  res.json({ message: 'Server is working' })
+})
+
 // Database setup
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'app.db')
 
@@ -24,6 +29,9 @@ const dataDir = path.dirname(DB_PATH)
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true })
 }
+
+// Check if database file already exists
+const dbExists = fs.existsSync(DB_PATH)
 
 const db = new Database(DB_PATH)
 
@@ -52,103 +60,94 @@ db.exec(`
   )
 `)
 
-// Seed initial data if tables are empty
-const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
-if (userCount.count === 0) {
-  console.log('Seeding database...')
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_gamification (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    points INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    experience INTEGER DEFAULT 0,
+    experience_to_next INTEGER DEFAULT 100,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id)
+  )
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    achievement_id TEXT NOT NULL,
+    earned BOOLEAN DEFAULT FALSE,
+    earned_date DATETIME,
+    progress INTEGER DEFAULT 0,
+    target INTEGER DEFAULT 1,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id, achievement_id)
+  )
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_analytics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    total_sessions INTEGER DEFAULT 0,
+    average_accuracy REAL DEFAULT 0,
+    average_session_time REAL DEFAULT 0,
+    mastered_words INTEGER DEFAULT 0,
+    progress_data TEXT,
+    difficulty_data TEXT,
+    session_data TEXT,
+    streak_data TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id)
+  )
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_spaced_repetition (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    word_id TEXT NOT NULL,
+    word TEXT NOT NULL,
+    difficulty REAL DEFAULT 0.5,
+    repetitions INTEGER DEFAULT 0,
+    interval_days INTEGER DEFAULT 1,
+    ease_factor REAL DEFAULT 2.5,
+    next_review_date DATETIME,
+    last_reviewed_date DATETIME,
+    correct_count INTEGER DEFAULT 0,
+    incorrect_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id, word_id)
+  )
+`)
+
+// Only seed if this is a completely new database (no existing file)
+if (!dbExists) {
+  console.log('Creating new database - seeding with admin user...')
   const saltRounds = 10
-  const defaultPassword = 'password123' // Default password for all initial users
+  const defaultPassword = 'password123' // Default password for admin user
 
   const hashedPassword = bcrypt.hashSync(defaultPassword, saltRounds)
   console.log('Generated hash for password123:', hashedPassword)
 
   const insertUser = db.prepare('INSERT INTO users (email, name, role, password_hash) VALUES (?, ?, ?, ?)')
 
-  const users = [
-    { email: 'admin@school.edu', name: 'Admin User', role: 'admin' },
-    { email: 'teacher@school.edu', name: 'Teacher User', role: 'teacher' },
-    { email: 'student@school.edu', name: 'Student User', role: 'student' },
-    { email: 'student2@school.edu', name: 'Student Two', role: 'student' }
-  ]
-
-  for (const user of users) {
-    insertUser.run(user.email, user.name, user.role, hashedPassword)
-  }
-
-  const insertWordlist = db.prepare(`
-    INSERT INTO wordlists (name, description, words, assigned_students, created_by, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `)
-
-  const wordlists = [
-    {
-      name: 'Basic Words',
-      description: 'Common everyday words for beginners',
-      words: JSON.stringify(['apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grape', 'honey', 'ice', 'jam']),
-      assignedStudents: JSON.stringify([3]),
-      createdBy: 2,
-      createdAt: '2025-10-01T00:00:00.000Z'
-    },
-    {
-      name: 'Advanced Vocabulary',
-      description: 'Challenging words for advanced learners',
-      words: JSON.stringify(['ubiquitous', 'serendipity', 'ephemeral', 'quintessential', 'labyrinthine', 'perspicacious', 'pulchritude', 'ebullient', 'mellifluous', 'quiescent']),
-      assignedStudents: JSON.stringify([]),
-      createdBy: 2,
-      createdAt: '2025-10-15T00:00:00.000Z'
-    },
-    {
-      name: 'Week 1: Colors & Shapes',
-      description: 'Basic colors and shapes vocabulary',
-      words: JSON.stringify(['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'circle', 'square', 'triangle', 'rectangle']),
-      assignedStudents: JSON.stringify([3, 4]),
-      createdBy: 2,
-      createdAt: '2025-10-20T00:00:00.000Z'
-    },
-    {
-      name: 'Week 2: Animals',
-      description: 'Common animal names',
-      words: JSON.stringify(['dog', 'cat', 'bird', 'fish', 'horse', 'cow', 'pig', 'sheep', 'chicken', 'duck']),
-      assignedStudents: JSON.stringify([3, 4]),
-      createdBy: 2,
-      createdAt: '2025-10-21T00:00:00.000Z'
-    },
-    {
-      name: 'Week 3: Family',
-      description: 'Family member vocabulary',
-      words: JSON.stringify(['mother', 'father', 'brother', 'sister', 'grandmother', 'grandfather', 'aunt', 'uncle', 'cousin', 'baby']),
-      assignedStudents: JSON.stringify([3, 4]),
-      createdBy: 2,
-      createdAt: '2025-10-22T00:00:00.000Z'
-    },
-    {
-      name: 'Week 4: Food',
-      description: 'Common food items',
-      words: JSON.stringify(['bread', 'milk', 'cheese', 'butter', 'egg', 'rice', 'pasta', 'soup', 'salad', 'fruit']),
-      assignedStudents: JSON.stringify([3, 4]),
-      createdBy: 2,
-      createdAt: '2025-10-23T00:00:00.000Z'
-    },
-    {
-      name: 'Week 5: Numbers',
-      description: 'Numbers and counting',
-      words: JSON.stringify(['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']),
-      assignedStudents: JSON.stringify([3, 4]),
-      createdBy: 2,
-      createdAt: '2025-10-24T00:00:00.000Z'
-    }
-  ]
-
-  for (const wordlist of wordlists) {
-    insertWordlist.run(
-      wordlist.name,
-      wordlist.description,
-      wordlist.words,
-      wordlist.assignedStudents,
-      wordlist.createdBy,
-      wordlist.createdAt
-    )
-  }
+  // Only create admin user
+  insertUser.run('admin@school.edu', 'Admin User', 'admin', hashedPassword)
+  console.log('Admin user created successfully')
+} else {
+  console.log('Using existing database - skipping seed data')
 }
 
 // Authentication
@@ -438,6 +437,206 @@ app.delete('/api/wordlists/:id', (req, res) => {
   }
 })
 
+// Gamification endpoints
+app.get('/api/gamification/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_gamification WHERE user_id = ?')
+    const gamification = stmt.get(req.params.userId)
+    if (gamification) {
+      res.json(gamification)
+    } else {
+      // Return default values if no data exists
+      res.json({
+        user_id: req.params.userId,
+        points: 0,
+        level: 1,
+        experience: 0,
+        experience_to_next: 100
+      })
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get gamification data' })
+  }
+})
+
+app.post('/api/gamification/:userId', (req, res) => {
+  try {
+    const { points, level, experience, experience_to_next } = req.body
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO user_gamification 
+      (user_id, points, level, experience, experience_to_next, updated_at) 
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `)
+    stmt.run(req.params.userId, points, level, experience, experience_to_next)
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save gamification data' })
+  }
+})
+
+// Achievements endpoints
+app.get('/api/achievements/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_achievements WHERE user_id = ?')
+    const achievements = stmt.all(req.params.userId)
+    res.json(achievements)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get achievements data' })
+  }
+})
+
+app.post('/api/achievements/:userId', (req, res) => {
+  try {
+    const achievements = req.body
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO user_achievements 
+      (user_id, achievement_id, earned, earned_date, progress, target, completed, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `)
+    
+    for (const achievement of achievements) {
+      stmt.run(
+        req.params.userId,
+        achievement.achievement_id,
+        achievement.earned,
+        achievement.earned_date,
+        achievement.progress,
+        achievement.target,
+        achievement.completed
+      )
+    }
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save achievements data' })
+  }
+})
+
+// Analytics endpoints
+app.get('/api/analytics/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_analytics WHERE user_id = ?')
+    const analytics = stmt.get(req.params.userId)
+    if (analytics) {
+      res.json({
+        ...analytics,
+        progress_data: analytics.progress_data ? JSON.parse(analytics.progress_data) : null,
+        difficulty_data: analytics.difficulty_data ? JSON.parse(analytics.difficulty_data) : null,
+        session_data: analytics.session_data ? JSON.parse(analytics.session_data) : null,
+        streak_data: analytics.streak_data ? JSON.parse(analytics.streak_data) : null
+      })
+    } else {
+      // Return default values if no data exists
+      res.json({
+        user_id: req.params.userId,
+        total_sessions: 45,
+        average_accuracy: 78,
+        average_session_time: 12,
+        mastered_words: 234,
+        progress_data: null,
+        difficulty_data: null,
+        session_data: null,
+        streak_data: null
+      })
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get analytics data' })
+  }
+})
+
+app.post('/api/analytics/:userId', (req, res) => {
+  try {
+    const { total_sessions, average_accuracy, average_session_time, mastered_words, progress_data, difficulty_data, session_data, streak_data } = req.body
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO user_analytics 
+      (user_id, total_sessions, average_accuracy, average_session_time, mastered_words, progress_data, difficulty_data, session_data, streak_data, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `)
+    stmt.run(
+      req.params.userId,
+      total_sessions,
+      average_accuracy,
+      average_session_time,
+      mastered_words,
+      progress_data ? JSON.stringify(progress_data) : null,
+      difficulty_data ? JSON.stringify(difficulty_data) : null,
+      session_data ? JSON.stringify(session_data) : null,
+      streak_data ? JSON.stringify(streak_data) : null
+    )
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save analytics data' })
+  }
+})
+
+// Spaced repetition endpoints
+app.get('/api/spaced-repetition/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_spaced_repetition WHERE user_id = ?')
+    const words = stmt.all(req.params.userId)
+    res.json(words)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get spaced repetition data' })
+  }
+})
+
+app.post('/api/spaced-repetition/:userId', (req, res) => {
+  try {
+    const words = req.body
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO user_spaced_repetition 
+      (user_id, word_id, word, difficulty, repetitions, interval_days, ease_factor, next_review_date, last_reviewed_date, correct_count, incorrect_count, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `)
+    
+    for (const word of words) {
+      stmt.run(
+        req.params.userId,
+        word.word_id || word.id,
+        word.word,
+        word.difficulty,
+        word.repetitions,
+        word.interval,
+        word.ease_factor,
+        word.next_review ? new Date(word.next_review).toISOString() : null,
+        word.last_reviewed ? new Date(word.last_reviewed).toISOString() : null,
+        word.correct_count,
+        word.incorrect_count
+      )
+    }
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save spaced repetition data' })
+  }
+})
+
+// Reset endpoints for admin
+app.post('/api/reset/:userId/:dataType', (req, res) => {
+  try {
+    const { userId, dataType } = req.params
+    
+    switch (dataType) {
+      case 'gamification':
+        db.prepare('DELETE FROM user_gamification WHERE user_id = ?').run(userId)
+        break
+      case 'achievements':
+        db.prepare('DELETE FROM user_achievements WHERE user_id = ?').run(userId)
+        break
+      case 'analytics':
+        db.prepare('DELETE FROM user_analytics WHERE user_id = ?').run(userId)
+        break
+      case 'spaced-repetition':
+        db.prepare('DELETE FROM user_spaced_repetition WHERE user_id = ?').run(userId)
+        break
+      default:
+        return res.status(400).json({ error: 'Invalid data type' })
+    }
+    
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reset data' })
+  }
+})
+
 // Serve static files from the Vue build
 const distPath = path.join(__dirname, 'dist')
 app.use(express.static(distPath))
@@ -449,10 +648,12 @@ app.use((req, res) => {
 
 // Start server
 try {
+  console.log('Attempting to start server...')
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
     console.log(`Database path: ${DB_PATH}`)
   })
+  console.log('Server startup initiated')
 } catch (error) {
   console.error('Failed to start server:', error)
   process.exit(1)

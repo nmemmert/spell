@@ -69,7 +69,13 @@
     <!-- Leaderboard -->
     <div class="bg-white shadow rounded-lg p-6">
       <h3 class="text-lg font-medium text-gray-900 mb-4">Leaderboard</h3>
-      <div class="space-y-3">
+      <div v-if="leaderboard.length === 0" class="text-center py-8">
+        <div class="text-gray-500">
+          <p class="text-lg">No users on leaderboard yet</p>
+          <p class="text-sm mt-2">Start practicing to earn points and appear here!</p>
+        </div>
+      </div>
+      <div v-else class="space-y-3">
         <div
           v-for="(user, index) in leaderboard"
           :key="user.name"
@@ -101,10 +107,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useGamificationStore } from '../stores/gamification'
+import { useGamificationStore, type LeaderboardUser } from '../stores/gamification'
 
 const gamificationStore = useGamificationStore()
-const leaderboard = computed(() => gamificationStore.getLeaderboard())
+const leaderboard = computed<LeaderboardUser[]>(() => gamificationStore.getLeaderboard())
 </script>
 
 <style scoped>

@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAuthStore } from './auth'
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
 
 export interface WordItem {
   id: string
@@ -15,6 +18,7 @@ export interface WordItem {
 }
 
 export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
+  const authStore = useAuthStore()
   const words = ref<WordItem[]>([])
 
   const dueWords = computed(() => {
@@ -45,7 +49,7 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
     return null
   }
 
-  const processAnswer = (wordId: string, quality: number) => {
+  const processAnswer = async (wordId: string, quality: number) => {
     // quality: 0-5 (0 = complete blackout, 5 = perfect response)
     const word = words.value.find(w => w.id === wordId)
     if (!word) return
@@ -79,9 +83,14 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
 
     // Calculate next review date
     word.nextReview = new Date(Date.now() + word.interval * 24 * 60 * 60 * 1000)
+
+    // Save data if user is logged in
+    if (authStore.user) {
+      await saveSpacedRepetitionData(authStore.user.id)
+    }
   }
 
-  const addWord = (word: string, difficulty: number = 0.5) => {
+  const addWord = async (word: string, difficulty: number = 0.5) => {
     const newWord: WordItem = {
       id: Date.now().toString(),
       word,
@@ -95,6 +104,11 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
       incorrectCount: 0
     }
     words.value.push(newWord)
+
+    // Save data if user is logged in
+    if (authStore.user) {
+      await saveSpacedRepetitionData(authStore.user.id)
+    }
   }
 
   const getStats = () => {
@@ -125,6 +139,52 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
     })
   }
 
+  const loadSpacedRepetitionData = async (userId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/spaced-repetition/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        words.value = data.map((word: any) => ({
+          id: word.word_id,
+          word: word.word,
+          difficulty: word.difficulty,
+          repetitions: word.repetitions,
+          interval: word.interval_days,
+          easeFactor: word.ease_factor,
+          nextReview: word.next_review_date ? new Date(word.next_review_date) : new Date(),
+          lastReviewed: word.last_reviewed_date ? new Date(word.last_reviewed_date) : null,
+          correctCount: word.correct_count,
+          incorrectCount: word.incorrect_count
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to load spaced repetition data:', error)
+    }
+  }
+
+  const saveSpacedRepetitionData = async (userId: number) => {
+    try {
+      await fetch(`${API_BASE}/api/spaced-repetition/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(words.value.map(word => ({
+          word_id: word.id,
+          word: word.word,
+          difficulty: word.difficulty,
+          repetitions: word.repetitions,
+          interval: word.interval,
+          ease_factor: word.easeFactor,
+          next_review: word.nextReview,
+          last_reviewed: word.lastReviewed,
+          correct_count: word.correctCount,
+          incorrect_count: word.incorrectCount
+        })))
+      })
+    } catch (error) {
+      console.error('Failed to save spaced repetition data:', error)
+    }
+  }
+
   return {
     words,
     dueWords,
@@ -134,6 +194,8 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
     processAnswer,
     addWord,
     getStats,
-    resetSpacedRepetition
+    resetSpacedRepetition,
+    loadSpacedRepetitionData,
+    saveSpacedRepetitionData
   }
 })

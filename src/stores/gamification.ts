@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAuthStore } from './auth'
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
 
 export interface Badge {
   id: string
@@ -19,7 +22,14 @@ export interface Achievement {
   completed: boolean
 }
 
+export interface LeaderboardUser {
+  name: string
+  points: number
+  level: number
+}
+
 export const useGamificationStore = defineStore('gamification', () => {
+  const authStore = useAuthStore()
   const points = ref(0)
   const level = ref(1)
   const experience = ref(0)
@@ -109,7 +119,7 @@ export const useGamificationStore = defineStore('gamification', () => {
 
   const levelProgress = computed(() => (experience.value / experienceToNext.value) * 100)
 
-  const addPoints = (amount: number) => {
+  const addPoints = async (amount: number) => {
     points.value += amount
     experience.value += amount
 
@@ -122,14 +132,24 @@ export const useGamificationStore = defineStore('gamification', () => {
 
     // Check achievements
     checkAchievements()
+
+    // Save data if user is logged in
+    if (authStore.user) {
+      await saveGamificationData(authStore.user.id)
+    }
   }
 
-  const earnBadge = (badgeId: string) => {
+  const earnBadge = async (badgeId: string) => {
     const badge = badges.value.find(b => b.id === badgeId)
     if (badge && !badge.earned) {
       badge.earned = true
       badge.earnedDate = new Date()
       addPoints(100) // Bonus points for earning badge
+      
+      // Save achievements data if user is logged in
+      if (authStore.user) {
+        await saveAchievementsData(authStore.user.id)
+      }
     }
   }
 
@@ -138,14 +158,9 @@ export const useGamificationStore = defineStore('gamification', () => {
     // For now, just mock updates
   }
 
-  const getLeaderboard = () => {
-    // Mock leaderboard data
-    return [
-      { name: 'You', points: points.value, level: level.value },
-      { name: 'Alice', points: 1450, level: 6 },
-      { name: 'Bob', points: 980, level: 4 },
-      { name: 'Charlie', points: 1120, level: 5 }
-    ].sort((a, b) => b.points - a.points)
+  const getLeaderboard = (): LeaderboardUser[] => {
+    // Return empty leaderboard - no mock data
+    return []
   }
 
   const resetAchievements = () => {
@@ -170,9 +185,99 @@ export const useGamificationStore = defineStore('gamification', () => {
   }
 
   const resetLeaderboard = () => {
-    // For now, this is a mock leaderboard, so resetting it means
-    // the current user will appear at the bottom with 0 points
-    // The mock users remain as they represent "other players"
+    // Leaderboard is now empty by default - no mock users
+  }
+
+  const loadGamificationData = async (userId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/gamification/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        points.value = data.points || 0
+        level.value = data.level || 1
+        experience.value = data.experience || 0
+        experienceToNext.value = data.experience_to_next || 100
+      }
+    } catch (error) {
+      console.error('Failed to load gamification data:', error)
+    }
+  }
+
+  const saveGamificationData = async (userId: number) => {
+    try {
+      await fetch(`${API_BASE}/api/gamification/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          points: points.value,
+          level: level.value,
+          experience: experience.value,
+          experience_to_next: experienceToNext.value
+        })
+      })
+    } catch (error) {
+      console.error('Failed to save gamification data:', error)
+    }
+  }
+
+  const loadAchievementsData = async (userId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/achievements/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Update badges
+        for (const badge of badges.value) {
+          const dbBadge = data.find((a: any) => a.achievement_id === badge.id)
+          if (dbBadge) {
+            badge.earned = dbBadge.earned
+            badge.earnedDate = dbBadge.earned_date ? new Date(dbBadge.earned_date) : undefined
+          }
+        }
+        
+        // Update achievements
+        for (const achievement of achievements.value) {
+          const dbAchievement = data.find((a: any) => a.achievement_id === achievement.id)
+          if (dbAchievement) {
+            achievement.progress = dbAchievement.progress
+            achievement.completed = dbAchievement.completed
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load achievements data:', error)
+    }
+  }
+
+  const saveAchievementsData = async (userId: number) => {
+    try {
+      const achievementsData = [
+        ...badges.value.map(badge => ({
+          achievement_id: badge.id,
+          earned: badge.earned,
+          earned_date: badge.earnedDate?.toISOString(),
+          progress: 0,
+          target: 1,
+          completed: badge.earned
+        })),
+        ...achievements.value.map(achievement => ({
+          achievement_id: achievement.id,
+          earned: false,
+          earned_date: null,
+          progress: achievement.progress,
+          target: achievement.target,
+          completed: achievement.completed
+        }))
+      ]
+      
+      await fetch(`${API_BASE}/api/achievements/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(achievementsData)
+      })
+    } catch (error) {
+      console.error('Failed to save achievements data:', error)
+    }
   }
 
   return {
@@ -191,6 +296,10 @@ export const useGamificationStore = defineStore('gamification', () => {
     getLeaderboard,
     resetAchievements,
     resetGamification,
-    resetLeaderboard
+    resetLeaderboard,
+    loadGamificationData,
+    saveGamificationData,
+    loadAchievementsData,
+    saveAchievementsData
   }
 })
