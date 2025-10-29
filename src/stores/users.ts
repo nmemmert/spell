@@ -4,6 +4,13 @@ import type { User, UserRole } from './auth'
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
 
+interface CreateUserData {
+  email: string
+  name: string
+  password: string
+  role: UserRole
+}
+
 export const useUsersStore = defineStore('users', () => {
   const users = ref<User[]>([])
   const isLoading = ref(false)
@@ -46,7 +53,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  const addUser = async (userData: Omit<User, 'id'>): Promise<User | null> => {
+  const addUser = async (userData: CreateUserData): Promise<User | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/users`, {
         method: 'POST',

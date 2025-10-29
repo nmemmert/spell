@@ -136,6 +136,18 @@
               />
             </div>
             <div>
+              <label class="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                v-model="userForm.password"
+                type="password"
+                required
+                minlength="6"
+                placeholder="Minimum 6 characters"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <p class="mt-1 text-sm text-gray-500">Password must be at least 6 characters long</p>
+            </div>
+            <div>
               <label class="block text-sm font-medium text-gray-700">Role</label>
               <select
                 v-model="userForm.role"
@@ -183,6 +195,7 @@ const editingUser = ref<User | null>(null)
 const userForm = ref({
   name: '',
   email: '',
+  password: '',
   role: 'student' as UserRole
 })
 
@@ -204,6 +217,7 @@ const editUser = (user: User) => {
   userForm.value = {
     name: user.name,
     email: user.email,
+    password: '', // Password not shown for security
     role: user.role
   }
 }
@@ -222,13 +236,13 @@ const saveUser = () => {
     usersStore.addUser(userForm.value)
     showAddUserModal.value = false
   }
-  userForm.value = { name: '', email: '', role: 'student' }
+  userForm.value = { name: '', email: '', password: '', role: 'student' }
 }
 
 const closeModal = () => {
   showAddUserModal.value = false
   editingUser.value = null
-  userForm.value = { name: '', email: '', role: 'student' }
+  userForm.value = { name: '', email: '', password: '', role: 'student' }
 }
 </script>
 
