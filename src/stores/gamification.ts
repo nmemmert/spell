@@ -148,6 +148,27 @@ export const useGamificationStore = defineStore('gamification', () => {
     ].sort((a, b) => b.points - a.points)
   }
 
+  const resetAchievements = () => {
+    // Reset all badges to unearned state
+    badges.value.forEach(badge => {
+      badge.earned = false
+      badge.earnedDate = undefined
+    })
+    // Reset achievement progress
+    achievements.value.forEach(achievement => {
+      achievement.progress = 0
+      achievement.completed = false
+    })
+  }
+
+  const resetGamification = () => {
+    // Reset points, level, and experience
+    points.value = 0
+    level.value = 1
+    experience.value = 0
+    experienceToNext.value = 100
+  }
+
   return {
     points,
     level,
@@ -161,6 +182,8 @@ export const useGamificationStore = defineStore('gamification', () => {
     addPoints,
     earnBadge,
     checkAchievements,
-    getLeaderboard
+    getLeaderboard,
+    resetAchievements,
+    resetGamification
   }
 })

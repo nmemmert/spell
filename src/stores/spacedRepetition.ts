@@ -112,6 +112,19 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
     }
   }
 
+  const resetSpacedRepetition = () => {
+    // Reset all words to initial state
+    words.value.forEach(word => {
+      word.repetitions = 0
+      word.interval = 1
+      word.easeFactor = 2.5
+      word.nextReview = new Date()
+      word.lastReviewed = null
+      word.correctCount = 0
+      word.incorrectCount = 0
+    })
+  }
+
   return {
     words,
     dueWords,
@@ -120,6 +133,7 @@ export const useSpacedRepetitionStore = defineStore('spacedRepetition', () => {
     getNextWord,
     processAnswer,
     addWord,
-    getStats
+    getStats,
+    resetSpacedRepetition
   }
 })

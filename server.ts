@@ -73,31 +73,33 @@ if (userCount.count === 0) {
 
   for (const user of users) {
     insertUser.run(user.email, user.name, user.role, hashedPassword)
-  }    const insertWordlist = db.prepare(`
-      INSERT INTO wordlists (name, description, words, assigned_students, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
+  }
 
-    const wordlists = [
-      {
-        name: 'Basic Words',
-        description: 'Common everyday words for beginners',
-        words: JSON.stringify(['apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grape', 'honey', 'ice', 'jam']),
-        assignedStudents: JSON.stringify([3]),
-        createdBy: 2,
-        createdAt: '2025-10-01T00:00:00.000Z'
-      },
-      {
-        name: 'Advanced Vocabulary',
-        description: 'Challenging words for advanced learners',
-        words: JSON.stringify(['ubiquitous', 'serendipity', 'ephemeral', 'quintessential', 'labyrinthine', 'perspicacious', 'pulchritude', 'ebullient', 'mellifluous', 'quiescent']),
-        assignedStudents: JSON.stringify([]),
-        createdBy: 2,
-        createdAt: '2025-10-15T00:00:00.000Z'
-      },
-      {
-        name: 'Week 1: Colors & Shapes',
-        description: 'Basic colors and shapes vocabulary',
+  const insertWordlist = db.prepare(`
+    INSERT INTO wordlists (name, description, words, assigned_students, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+
+  const wordlists = [
+    {
+      name: 'Basic Words',
+      description: 'Common everyday words for beginners',
+      words: JSON.stringify(['apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grape', 'honey', 'ice', 'jam']),
+      assignedStudents: JSON.stringify([3]),
+      createdBy: 2,
+      createdAt: '2025-10-01T00:00:00.000Z'
+    },
+    {
+      name: 'Advanced Vocabulary',
+      description: 'Challenging words for advanced learners',
+      words: JSON.stringify(['ubiquitous', 'serendipity', 'ephemeral', 'quintessential', 'labyrinthine', 'perspicacious', 'pulchritude', 'ebullient', 'mellifluous', 'quiescent']),
+      assignedStudents: JSON.stringify([]),
+      createdBy: 2,
+      createdAt: '2025-10-15T00:00:00.000Z'
+    },
+    {
+      name: 'Week 1: Colors & Shapes',
+      description: 'Basic colors and shapes vocabulary',
       words: JSON.stringify(['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'circle', 'square', 'triangle', 'rectangle']),
       assignedStudents: JSON.stringify([3, 4]),
       createdBy: 2,

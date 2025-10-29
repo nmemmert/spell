@@ -35,18 +35,26 @@
                       :class="getRoleBadgeClass(user.role)">
                   {{ user.role }}
                 </span>
-                <button
-                  @click="editUser(user)"
-                  class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                >
-                  Edit
-                </button>
-                <button
-                  @click="deleteUser(user.id)"
-                  class="text-red-600 hover:text-red-900 text-sm font-medium"
-                >
-                  Delete
-                </button>
+                <div class="flex space-x-2">
+                  <button
+                    @click="editUser(user)"
+                    class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    @click="showResetModal(user)"
+                    class="text-orange-600 hover:text-orange-900 text-sm font-medium"
+                  >
+                    Reset Data
+                  </button>
+                  <button
+                    @click="deleteUser(user.id)"
+                    class="text-red-600 hover:text-red-900 text-sm font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </li>
@@ -178,15 +186,96 @@
         </div>
       </div>
     </div>
+
+    <!-- Reset User Data Modal -->
+    <div v-if="showResetDataModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" @click="closeResetModal">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" @click.stop>
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">
+            Reset Data for {{ selectedUser?.name }}
+          </h3>
+          <p class="text-sm text-gray-600 mb-4">
+            Select which data to reset for this user. This action cannot be undone.
+          </p>
+          <div class="space-y-3">
+            <div class="flex items-center">
+              <input
+                id="reset-achievements"
+                v-model="resetOptions.achievements"
+                type="checkbox"
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label for="reset-achievements" class="ml-2 block text-sm text-gray-900">
+                Reset Achievements & Badges
+              </label>
+            </div>
+            <div class="flex items-center">
+              <input
+                id="reset-gamification"
+                v-model="resetOptions.gamification"
+                type="checkbox"
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label for="reset-gamification" class="ml-2 block text-sm text-gray-900">
+                Reset Gamification (Points, Level, Experience)
+              </label>
+            </div>
+            <div class="flex items-center">
+              <input
+                id="reset-analytics"
+                v-model="resetOptions.analytics"
+                type="checkbox"
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label for="reset-analytics" class="ml-2 block text-sm text-gray-900">
+                Reset Analytics & Progress Data
+              </label>
+            </div>
+            <div class="flex items-center">
+              <input
+                id="reset-spaced-repetition"
+                v-model="resetOptions.spacedRepetition"
+                type="checkbox"
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label for="reset-spaced-repetition" class="ml-2 block text-sm text-gray-900">
+                Reset Spaced Repetition Progress
+              </label>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              @click="closeResetModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              @click="confirmReset"
+              :disabled="!hasSelectedResetOptions"
+              class="px-4 py-2 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Reset Selected Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useUsersStore } from '../stores/users'
+import { useGamificationStore } from '../stores/gamification'
+import { useSpacedRepetitionStore } from '../stores/spacedRepetition'
 import type { User, UserRole } from '../stores/auth'
 
 const usersStore = useUsersStore()
+const gamificationStore = useGamificationStore()
+const spacedRepetitionStore = useSpacedRepetitionStore()
 const users = computed(() => usersStore.getUsers())
 const getUsersByRole = (role: UserRole) => usersStore.getUsersByRole(role)
 
@@ -197,6 +286,22 @@ const userForm = ref({
   email: '',
   password: '',
   role: 'student' as UserRole
+})
+
+const showResetDataModal = ref(false)
+const selectedUser = ref<User | null>(null)
+const resetOptions = ref({
+  achievements: false,
+  gamification: false,
+  analytics: false,
+  spacedRepetition: false
+})
+
+const hasSelectedResetOptions = computed(() => {
+  return resetOptions.value.achievements ||
+         resetOptions.value.gamification ||
+         resetOptions.value.analytics ||
+         resetOptions.value.spacedRepetition
 })
 
 const getRoleBadgeClass = (role: UserRole) => {
@@ -243,6 +348,70 @@ const closeModal = () => {
   showAddUserModal.value = false
   editingUser.value = null
   userForm.value = { name: '', email: '', password: '', role: 'student' }
+}
+
+const showResetModal = (user: User) => {
+  selectedUser.value = user
+  showResetDataModal.value = true
+  resetOptions.value = {
+    achievements: false,
+    gamification: false,
+    analytics: false,
+    spacedRepetition: false
+  }
+}
+
+const closeResetModal = () => {
+  showResetDataModal.value = false
+  selectedUser.value = null
+  resetOptions.value = {
+    achievements: false,
+    gamification: false,
+    analytics: false,
+    spacedRepetition: false
+  }
+}
+
+const confirmReset = () => {
+  if (!selectedUser.value || !hasSelectedResetOptions.value) return
+
+  const confirmMessage = `Are you sure you want to reset the selected data for ${selectedUser.value.name}? This action cannot be undone.`
+  if (!confirm(confirmMessage)) return
+
+  // Reset achievements and badges
+  if (resetOptions.value.achievements) {
+    gamificationStore.resetAchievements()
+  }
+
+  // Reset gamification data
+  if (resetOptions.value.gamification) {
+    gamificationStore.resetGamification()
+  }
+
+  // Reset analytics data (currently stored in localStorage/sessionStorage)
+  if (resetOptions.value.analytics) {
+    resetAnalyticsData()
+  }
+
+  // Reset spaced repetition data
+  if (resetOptions.value.spacedRepetition) {
+    spacedRepetitionStore.resetSpacedRepetition()
+  }
+
+  closeResetModal()
+  alert(`Data reset completed for ${selectedUser.value.name}`)
+}
+
+const resetAnalyticsData = () => {
+  // Clear analytics data from localStorage
+  localStorage.removeItem('analytics_sessions')
+  localStorage.removeItem('analytics_accuracy')
+  localStorage.removeItem('analytics_session_time')
+  localStorage.removeItem('analytics_mastered_words')
+  localStorage.removeItem('analytics_progress_data')
+  localStorage.removeItem('analytics_difficulty_data')
+  localStorage.removeItem('analytics_session_data')
+  localStorage.removeItem('analytics_streak_data')
 }
 </script>
 
