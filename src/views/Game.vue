@@ -124,16 +124,16 @@
                   @keyup.enter="checkAnswer"
                   ref="inputRef"
                   type="text"
-                  :disabled="gameMode === 'test' && testPhase === 'show'"
+                  :disabled="gameMode === 'test' && testPhase === 'show' || isCheckingAnswer"
                   class="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  :placeholder="gameMode === 'test' && testPhase === 'show' ? 'Wait for word to disappear...' : 'Type the word here...'"
+                  :placeholder="gameMode === 'test' && testPhase === 'show' ? 'Wait for word to disappear...' : isCheckingAnswer ? 'Checking answer...' : 'Type the word here...'"
                   autocomplete="off"
                 />
 
                 <button
                   v-if="gameMode === 'test' && testPhase === 'input'"
                   @click="checkAnswer"
-                  :disabled="!userInput.trim()"
+                  :disabled="!userInput.trim() || isCheckingAnswer"
                   class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Check Answer
@@ -141,7 +141,7 @@
                 <button
                   v-else-if="gameMode === 'practice'"
                   @click="checkAnswer"
-                  :disabled="!userInput.trim()"
+                  :disabled="!userInput.trim() || isCheckingAnswer"
                   class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Check Answer
@@ -196,6 +196,7 @@ const gameResults = ref<Array<{
   wordlistId?: number
 }>>([])
 const showResults = ref(false)
+const isCheckingAnswer = ref(false)
 
 onMounted(async () => {
   const wordlistId = route.query.wordlist as string
@@ -325,7 +326,9 @@ const nextWord = () => {
 }
 
 const checkAnswer = () => {
-  if (!currentWord.value) return
+  if (!currentWord.value || isCheckingAnswer.value) return
+
+  isCheckingAnswer.value = true
 
   const isCorrect = userInput.value.toLowerCase() === currentWord.value.toLowerCase()
 
@@ -364,7 +367,10 @@ const checkAnswer = () => {
 
   // Move to next word after a delay
   currentWordIndex.value++
-  setTimeout(nextWord, 2000)
+  setTimeout(() => {
+    nextWord()
+    isCheckingAnswer.value = false
+  }, 2000)
 }
 
 const resetGame = () => {
@@ -378,6 +384,7 @@ const resetGame = () => {
   testPhase.value = 'show'
   gameResults.value = []
   showResults.value = false
+  isCheckingAnswer.value = false
   if (countdownTimer.value) {
     clearInterval(countdownTimer.value)
     countdownTimer.value = null
