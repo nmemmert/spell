@@ -168,12 +168,14 @@ import { useSpacedRepetitionStore, type WordItem } from '../stores/spacedRepetit
 import { useGamificationStore } from '../stores/gamification'
 import { useWordlistStore } from '../stores/wordlist'
 import { useAuthStore } from '../stores/auth'
+import { useAnalyticsStore } from '../stores/analytics'
 
 const route = useRoute()
 const spacedRepetitionStore = useSpacedRepetitionStore()
 const gamificationStore = useGamificationStore()
 const wordlistStore = useWordlistStore()
 const authStore = useAuthStore()
+const analyticsStore = useAnalyticsStore()
 
 const gameStarted = ref(false)
 const currentWordItem = ref<WordItem | null>(null)
@@ -273,6 +275,11 @@ const nextWord = () => {
   // Check if we've completed all words
   if (currentWordIndex.value >= gameWords.value.length) {
     showResults.value = true
+
+    // Save analytics data
+    if (authStore.user) {
+      analyticsStore.saveAnalyticsData(authStore.user.id)
+    }
 
     // Award achievements for completing the session
     gamificationStore.earnBadge('first-session')

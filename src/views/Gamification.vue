@@ -106,11 +106,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useGamificationStore, type LeaderboardUser } from '../stores/gamification'
+import { useAuthStore } from '../stores/auth'
 
 const gamificationStore = useGamificationStore()
+const authStore = useAuthStore()
 const leaderboard = computed<LeaderboardUser[]>(() => gamificationStore.getLeaderboard())
+
+onMounted(async () => {
+  if (authStore.user) {
+    await gamificationStore.loadGamificationData(authStore.user.id)
+    await gamificationStore.loadAchievementsData(authStore.user.id)
+  }
+})
 </script>
 
 <style scoped>

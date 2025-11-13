@@ -154,8 +154,32 @@ export const useGamificationStore = defineStore('gamification', () => {
   }
 
   const checkAchievements = () => {
-    // This would be called after sessions to update progress
-    // For now, just mock updates
+    // Update achievement progress based on current stats
+    const wordsMasteredAchievement = achievements.value.find(a => a.id === 'words-mastered')
+    if (wordsMasteredAchievement) {
+      // This would need to be tracked from spaced repetition data
+      // For now, increment based on points earned (rough estimate)
+      wordsMasteredAchievement.progress = Math.min(Math.floor(points.value / 50), wordsMasteredAchievement.target)
+      wordsMasteredAchievement.completed = wordsMasteredAchievement.progress >= wordsMasteredAchievement.target
+    }
+
+    const accuracyChampionAchievement = achievements.value.find(a => a.id === 'accuracy-champion')
+    if (accuracyChampionAchievement) {
+      // This would need session accuracy tracking
+      // For now, just increment occasionally
+      if (Math.random() > 0.7) { // Simulate occasional good sessions
+        accuracyChampionAchievement.progress = Math.min(accuracyChampionAchievement.progress + 1, accuracyChampionAchievement.target)
+        accuracyChampionAchievement.completed = accuracyChampionAchievement.progress >= accuracyChampionAchievement.target
+      }
+    }
+
+    const timeWarriorAchievement = achievements.value.find(a => a.id === 'time-warrior')
+    if (timeWarriorAchievement) {
+      // This would track total time spent
+      // For now, increment based on sessions completed
+      timeWarriorAchievement.progress = Math.min(timeWarriorAchievement.progress + 0.5, timeWarriorAchievement.target)
+      timeWarriorAchievement.completed = timeWarriorAchievement.progress >= timeWarriorAchievement.target
+    }
   }
 
   const getLeaderboard = (): LeaderboardUser[] => {
