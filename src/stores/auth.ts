@@ -10,7 +10,7 @@ export interface User {
   role: UserRole
 }
 
-const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+const API_BASE = import.meta.env.DEV ? '' : ''
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)

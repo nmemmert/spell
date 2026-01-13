@@ -11,6 +11,7 @@ import Analytics from '../views/Analytics.vue'
 import Gamification from '../views/Gamification.vue'
 import SpacedRepetition from '../views/SpacedRepetition.vue'
 import BibleTyping from '../views/BibleTyping.vue'
+import UserAchievementsAnalytics from '../components/UserAchievementsAnalytics.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -69,6 +70,12 @@ const routes: RouteRecordRaw[] = [
     name: 'BibleTyping',
     component: BibleTyping,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/user-data',
+    name: 'UserAchievementsAnalytics',
+    component: UserAchievementsAnalytics,
+    meta: { requiresAuth: true, requiresRole: 'teacher' }
   },
   {
     path: '/admin',

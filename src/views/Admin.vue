@@ -3,6 +3,16 @@
     <div class="mb-8">
       <h2 class="text-2xl font-bold text-gray-900 mb-6">Admin Panel</h2>
 
+      <!-- Navigation Links -->
+      <div class="mb-6">
+        <router-link
+          to="/user-data"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        >
+          View All User Achievements & Analytics
+        </router-link>
+      </div>
+
       <!-- User Management Section -->
       <div class="bg-white shadow overflow-hidden sm:rounded-md mb-8">
         <div class="px-4 py-5 sm:px-6">

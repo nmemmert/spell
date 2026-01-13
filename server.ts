@@ -568,6 +568,41 @@ app.post('/api/analytics/:userId', (req, res) => {
   }
 })
 
+// New endpoints for admin/teacher to view all users' data
+app.get('/api/achievements/all', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT ua.*, u.name, u.email, u.role 
+      FROM user_achievements ua 
+      JOIN users u ON ua.user_id = u.id
+    `)
+    const achievements = stmt.all()
+    res.json(achievements)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get all achievements data' })
+  }
+})
+
+app.get('/api/analytics/all', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT ua.*, u.name, u.email, u.role 
+      FROM user_analytics ua 
+      JOIN users u ON ua.user_id = u.id
+    `)
+    const analytics = stmt.all().map(row => ({
+      ...row,
+      progress_data: row.progress_data ? JSON.parse(row.progress_data) : null,
+      difficulty_data: row.difficulty_data ? JSON.parse(row.difficulty_data) : null,
+      session_data: row.session_data ? JSON.parse(row.session_data) : null,
+      streak_data: row.streak_data ? JSON.parse(row.streak_data) : null
+    }))
+    res.json(analytics)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get all analytics data' })
+  }
+})
+
 // Spaced repetition endpoints
 app.get('/api/spaced-repetition/:userId', (req, res) => {
   try {
