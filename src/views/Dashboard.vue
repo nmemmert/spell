@@ -113,7 +113,7 @@
           Logout
         </button>
       </div>
-      <div class="bg-white shadow overflow-hidden sm:rounded-md">
+      <div v-if="recentSessions.length > 0" class="bg-white shadow overflow-hidden sm:rounded-md">
         <div class="px-4 py-5 sm:px-6">
           <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Sessions</h3>
         </div>
@@ -131,30 +131,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useGamificationStore } from '../stores/gamification'
 import { useSpacedRepetitionStore } from '../stores/spacedRepetition'
+import { useAnalyticsStore } from '../stores/analytics'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const gamificationStore = useGamificationStore()
 const spacedRepetitionStore = useSpacedRepetitionStore()
+const analyticsStore = useAnalyticsStore()
 
-// Mock data
-const totalWords = ref(1250)
-const streak = ref(7)
-const accuracy = ref(85)
-const recentSessions = ref([
-  { id: 1, date: '2025-10-28', words: 20, accuracy: 90 },
-  { id: 2, date: '2025-10-27', words: 25, accuracy: 80 },
-  { id: 3, date: '2025-10-26', words: 15, accuracy: 95 }
-])
+const loadDashboardData = async () => {
+  if (authStore.user) {
+    await analyticsStore.loadAnalyticsData(authStore.user.id)
+    await gamificationStore.loadGamificationData(authStore.user.id)
+  }
+}
+
+onMounted(() => {
+  loadDashboardData()
+})
+
+// Real data from analytics store
+const totalWords = computed(() => analyticsStore.masteredWords.value)
+const streak = computed(() => {
+  // Streak calculation would need session history tracking
+  // For now, return 0 - only show real data
+  return 0
+})
+const accuracy = computed(() => analyticsStore.averageAccuracy.value)
+const recentSessions = computed<Array<{ id: number; date: string; words: number; accuracy: number }>>(() => {
+  // Recent sessions would come from a dedicated API endpoint
+  // For now, return empty - only show real data
+  return []
+})
 
 // Use stores for additional data
 const points = gamificationStore.points
-const wordsCount = spacedRepetitionStore.words.length
+const wordsCount = computed(() => spacedRepetitionStore.words.length)
 
 const logout = () => {
   authStore.logout()

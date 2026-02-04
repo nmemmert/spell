@@ -9,6 +9,7 @@ export interface Wordlist {
   assignedStudents: number[] // Array of student IDs
   createdBy: number // Teacher/Admin ID who created it
   createdAt: Date
+  allowShowWord?: boolean // Allow students to reveal word during test (default: true)
 }
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
@@ -28,7 +29,8 @@ export const useWordlistStore = defineStore('wordlist', () => {
       const data = await response.json()
       wordlists.value = data.map((w: any) => ({
         ...w,
-        createdAt: new Date(w.createdAt)
+        createdAt: new Date(w.createdAt),
+        allowShowWord: w.allowShowWord ?? true
       }))
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
@@ -55,7 +57,8 @@ export const useWordlistStore = defineStore('wordlist', () => {
       const data = await response.json()
       return {
         ...data,
-        createdAt: new Date(data.createdAt)
+        createdAt: new Date(data.createdAt),
+        allowShowWord: data.allowShowWord ?? true
       }
     } catch (err) {
       console.error('Failed to fetch wordlist:', err)
@@ -99,7 +102,7 @@ export const useWordlistStore = defineStore('wordlist', () => {
     }
   }
 
-  const updateWordlist = async (id: number, updates: Partial<Pick<Wordlist, 'name' | 'description' | 'words' | 'assignedStudents'>>): Promise<Wordlist | null> => {
+  const updateWordlist = async (id: number, updates: Partial<Pick<Wordlist, 'name' | 'description' | 'words' | 'assignedStudents' | 'allowShowWord'>>): Promise<Wordlist | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/wordlists/${id}`, {
         method: 'PUT',

@@ -25,6 +25,17 @@
             <label for="words" class="block text-sm font-medium text-gray-700">Words (one per line)</label>
             <textarea v-model="formData.wordsText" id="words" rows="5" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="apple&#10;banana&#10;cherry"></textarea>
           </div>
+          <div v-if="authStore.isTeacher || authStore.isAdmin" class="flex items-center">
+            <input
+              id="allowShowWord"
+              v-model="formData.allowShowWord"
+              type="checkbox"
+              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label for="allowShowWord" class="ml-2 block text-sm text-gray-700">
+              Allow students to reveal word during test mode (-2 points penalty)
+            </label>
+          </div>
           <div v-if="authStore.isTeacher || authStore.isAdmin">
             <label class="block text-sm font-medium text-gray-700 mb-2">Assign to Students</label>
             <div class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
@@ -146,7 +157,8 @@ const formData = ref({
   name: '',
   description: '',
   wordsText: '',
-  assignedStudents: [] as number[]
+  assignedStudents: [] as number[],
+  allowShowWord: true
 })
 
 // Computed properties
@@ -181,7 +193,8 @@ const saveWordlist = () => {
       name: formData.value.name,
       description: formData.value.description,
       words,
-      assignedStudents: formData.value.assignedStudents
+      assignedStudents: formData.value.assignedStudents,
+      allowShowWord: formData.value.allowShowWord
     })
   } else {
     // Create new wordlist
@@ -190,7 +203,8 @@ const saveWordlist = () => {
       description: formData.value.description,
       words,
       assignedStudents: formData.value.assignedStudents,
-      createdBy: authStore.user?.id || 0
+      createdBy: authStore.user?.id || 0,
+      allowShowWord: formData.value.allowShowWord
     })
   }
 
@@ -203,7 +217,8 @@ const editWordlist = (wordlist: Wordlist) => {
     name: wordlist.name,
     description: wordlist.description,
     wordsText: wordlist.words.join('\n'),
-    assignedStudents: [...wordlist.assignedStudents]
+    assignedStudents: [...wordlist.assignedStudents],
+    allowShowWord: wordlist.allowShowWord ?? true
   }
   showForm.value = true
 }
@@ -224,7 +239,8 @@ const resetForm = () => {
     name: '',
     description: '',
     wordsText: '',
-    assignedStudents: []
+    assignedStudents: [],
+    allowShowWord: true
   }
   editingWordlist.value = null
   showForm.value = false

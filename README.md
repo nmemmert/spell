@@ -21,14 +21,11 @@ A modern spelling practice application built with Vue 3, TypeScript, and Vite.
 The application uses secure password-based authentication with role-based access control.
 
 ### Default Users
-The application comes pre-configured with the following default users:
+The database seeds a single default admin user on first run:
 
 | Email | Password | Role | Description |
 |-------|----------|------|-------------|
 | `admin@school.edu` | `password123` | Admin | Full system access, user management |
-| `teacher@school.edu` | `password123` | Teacher | Create wordlists, assign to students, view progress |
-| `student@school.edu` | `password123` | Student | Practice spelling, Bible typing, view personal progress |
-| `student2@school.edu` | `password123` | Student | Additional student account for testing |
 
 ### User Roles
 - **Admin**: Complete system access including user management and all features

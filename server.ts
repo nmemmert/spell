@@ -56,6 +56,7 @@ db.exec(`
     assigned_students TEXT NOT NULL,
     created_by INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    allow_show_word INTEGER DEFAULT 1,
     FOREIGN KEY (created_by) REFERENCES users (id)
   )
 `)
@@ -100,6 +101,8 @@ db.exec(`
     average_accuracy REAL DEFAULT 0,
     average_session_time REAL DEFAULT 0,
     mastered_words INTEGER DEFAULT 0,
+    show_word_count INTEGER DEFAULT 0,
+    audio_replay_count INTEGER DEFAULT 0,
     progress_data TEXT,
     difficulty_data TEXT,
     session_data TEXT,
@@ -110,6 +113,51 @@ db.exec(`
     UNIQUE(user_id)
   )
 `)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    auto_speak_enabled INTEGER DEFAULT 1,
+    speech_rate REAL DEFAULT 0.8,
+    speech_pitch REAL DEFAULT 1.0,
+    speech_spell_out INTEGER DEFAULT 0,
+    use_puter_tts INTEGER DEFAULT 1,
+    puter_engine TEXT DEFAULT 'neural',
+    puter_voice TEXT,
+    speech_voice TEXT,
+    test_show_duration INTEGER DEFAULT 3,
+    test_answer_time_limit INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id)
+  )
+`)
+
+const ensureColumn = (tableName: string, columnName: string, columnDefinition: string) => {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[]
+  const exists = columns.some(col => col.name === columnName)
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`)
+  }
+}
+
+ensureColumn('wordlists', 'allow_show_word', 'INTEGER DEFAULT 1')
+ensureColumn('user_analytics', 'show_word_count', 'INTEGER DEFAULT 0')
+ensureColumn('user_analytics', 'audio_replay_count', 'INTEGER DEFAULT 0')
+ensureColumn('user_settings', 'speech_spell_out', 'INTEGER DEFAULT 0')
+ensureColumn('user_settings', 'use_puter_tts', 'INTEGER DEFAULT 1')
+ensureColumn('user_settings', 'puter_engine', "TEXT DEFAULT 'neural'")
+ensureColumn('user_settings', 'puter_voice', 'TEXT')
+
+// Backfill defaults for existing users when values are missing
+try {
+  db.exec("UPDATE user_settings SET use_puter_tts = 1 WHERE use_puter_tts IS NULL")
+  db.exec("UPDATE user_settings SET puter_engine = 'neural' WHERE puter_engine IS NULL OR puter_engine = ''")
+} catch (error) {
+  console.error('Failed to backfill user_settings defaults:', error)
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS user_spaced_repetition (
@@ -289,11 +337,27 @@ app.post('/api/users', async (req: Request, res: Response) => {
   }
 })
 
-app.put('/api/users/:id', (req, res) => {
+app.put('/api/users/:id', async (req, res) => {
   try {
-    const { email, name, role } = req.body
-    const stmt = db.prepare('UPDATE users SET email = ?, name = ?, role = ? WHERE id = ?')
-    const result = stmt.run(email, name, role, req.params.id)
+    const { email, name, role, password } = req.body
+
+    if (!email || !name || !role) {
+      return res.status(400).json({ error: 'Email, name, and role are required' })
+    }
+
+    let result
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long' })
+      }
+      const saltRounds = 10
+      const passwordHash = await bcrypt.hash(password, saltRounds)
+      const stmt = db.prepare('UPDATE users SET email = ?, name = ?, role = ?, password_hash = ? WHERE id = ?')
+      result = stmt.run(email, name, role, passwordHash, req.params.id)
+    } else {
+      const stmt = db.prepare('UPDATE users SET email = ?, name = ?, role = ? WHERE id = ?')
+      result = stmt.run(email, name, role, req.params.id)
+    }
     if (result.changes > 0) {
       res.json({ success: true })
     } else {
@@ -322,7 +386,7 @@ app.delete('/api/users/:id', (req, res) => {
 app.get('/api/wordlists', (req, res) => {
   try {
     const stmt = db.prepare(`
-      SELECT id, name, description, words, assigned_students, created_by, created_at
+      SELECT id, name, description, words, assigned_students, created_by, created_at, allow_show_word
       FROM wordlists ORDER BY id
     `)
     const rows = stmt.all() as any[]
@@ -334,7 +398,8 @@ app.get('/api/wordlists', (req, res) => {
       words: JSON.parse(row.words),
       assignedStudents: JSON.parse(row.assigned_students),
       createdBy: row.created_by,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      allowShowWord: row.allow_show_word === null || row.allow_show_word === undefined ? true : !!row.allow_show_word
     }))
 
     res.json(wordlists)
@@ -346,7 +411,7 @@ app.get('/api/wordlists', (req, res) => {
 app.get('/api/wordlists/:id', (req, res) => {
   try {
     const stmt = db.prepare(`
-      SELECT id, name, description, words, assigned_students, created_by, created_at
+      SELECT id, name, description, words, assigned_students, created_by, created_at, allow_show_word
       FROM wordlists WHERE id = ?
     `)
     const row = stmt.get(req.params.id) as any
@@ -359,7 +424,8 @@ app.get('/api/wordlists/:id', (req, res) => {
         words: JSON.parse(row.words),
         assignedStudents: JSON.parse(row.assigned_students),
         createdBy: row.created_by,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        allowShowWord: row.allow_show_word === null || row.allow_show_word === undefined ? true : !!row.allow_show_word
       }
       res.json(wordlist)
     } else {
@@ -372,10 +438,10 @@ app.get('/api/wordlists/:id', (req, res) => {
 
 app.post('/api/wordlists', (req, res) => {
   try {
-    const { name, description, words, assignedStudents, createdBy, createdAt } = req.body
+    const { name, description, words, assignedStudents, createdBy, createdAt, allowShowWord } = req.body
     const stmt = db.prepare(`
-      INSERT INTO wordlists (name, description, words, assigned_students, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO wordlists (name, description, words, assigned_students, created_by, created_at, allow_show_word)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     const result = stmt.run(
       name,
@@ -383,7 +449,8 @@ app.post('/api/wordlists', (req, res) => {
       JSON.stringify(words),
       JSON.stringify(assignedStudents),
       createdBy,
-      createdAt
+      createdAt,
+      allowShowWord === undefined ? 1 : allowShowWord ? 1 : 0
     )
     res.json({
       id: result.lastInsertRowid,
@@ -392,7 +459,8 @@ app.post('/api/wordlists', (req, res) => {
       words,
       assignedStudents,
       createdBy,
-      createdAt
+      createdAt,
+      allowShowWord: allowShowWord === undefined ? true : !!allowShowWord
     })
   } catch (error) {
     res.status(500).json({ error: 'Failed to create wordlist' })
@@ -401,9 +469,9 @@ app.post('/api/wordlists', (req, res) => {
 
 app.put('/api/wordlists/:id', (req, res) => {
   try {
-    const { name, description, words, assignedStudents } = req.body
+    const { name, description, words, assignedStudents, allowShowWord } = req.body
     const stmt = db.prepare(`
-      UPDATE wordlists SET name = ?, description = ?, words = ?, assigned_students = ?
+      UPDATE wordlists SET name = ?, description = ?, words = ?, assigned_students = ?, allow_show_word = ?
       WHERE id = ?
     `)
     const result = stmt.run(
@@ -411,6 +479,7 @@ app.put('/api/wordlists/:id', (req, res) => {
       description,
       JSON.stringify(words),
       JSON.stringify(assignedStudents),
+      allowShowWord === undefined ? 1 : allowShowWord ? 1 : 0,
       req.params.id
     )
     if (result.changes > 0) {
@@ -512,6 +581,58 @@ app.post('/api/achievements/:userId', (req, res) => {
 })
 
 // Analytics endpoints
+app.get('/api/analytics', (req, res) => {
+  try {
+    const role = req.query.role as string | undefined
+    const baseQuery = `
+      SELECT
+        u.id as user_id,
+        u.name,
+        u.email,
+        u.role,
+        ua.total_sessions,
+        ua.average_accuracy,
+        ua.average_session_time,
+        ua.mastered_words,
+        ua.show_word_count,
+        ua.audio_replay_count,
+        ua.progress_data,
+        ua.difficulty_data,
+        ua.session_data,
+        ua.streak_data
+      FROM users u
+      LEFT JOIN user_analytics ua ON ua.user_id = u.id
+    `
+
+    const stmt = role
+      ? db.prepare(`${baseQuery} WHERE u.role = ? ORDER BY u.id`)
+      : db.prepare(`${baseQuery} ORDER BY u.id`)
+
+    const rows = role ? stmt.all(role) : stmt.all()
+
+    const analytics = rows.map((row: any) => ({
+      user_id: row.user_id,
+      name: row.name,
+      email: row.email,
+      role: row.role,
+      total_sessions: row.total_sessions ?? 0,
+      average_accuracy: row.average_accuracy ?? 0,
+      average_session_time: row.average_session_time ?? 0,
+      mastered_words: row.mastered_words ?? 0,
+      show_word_count: row.show_word_count ?? 0,
+      audio_replay_count: row.audio_replay_count ?? 0,
+      progress_data: row.progress_data ? JSON.parse(row.progress_data) : null,
+      difficulty_data: row.difficulty_data ? JSON.parse(row.difficulty_data) : null,
+      session_data: row.session_data ? JSON.parse(row.session_data) : null,
+      streak_data: row.streak_data ? JSON.parse(row.streak_data) : null
+    }))
+
+    res.json(analytics)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get analytics list' })
+  }
+})
+
 app.get('/api/analytics/:userId', (req, res) => {
   try {
     const stmt = db.prepare('SELECT * FROM user_analytics WHERE user_id = ?')
@@ -532,6 +653,8 @@ app.get('/api/analytics/:userId', (req, res) => {
         average_accuracy: 78,
         average_session_time: 12,
         mastered_words: 234,
+        show_word_count: 0,
+        audio_replay_count: 0,
         progress_data: null,
         difficulty_data: null,
         session_data: null,
@@ -545,11 +668,11 @@ app.get('/api/analytics/:userId', (req, res) => {
 
 app.post('/api/analytics/:userId', (req, res) => {
   try {
-    const { total_sessions, average_accuracy, average_session_time, mastered_words, progress_data, difficulty_data, session_data, streak_data } = req.body
+    const { total_sessions, average_accuracy, average_session_time, mastered_words, show_word_count, audio_replay_count, progress_data, difficulty_data, session_data, streak_data } = req.body
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO user_analytics 
-      (user_id, total_sessions, average_accuracy, average_session_time, mastered_words, progress_data, difficulty_data, session_data, streak_data, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      (user_id, total_sessions, average_accuracy, average_session_time, mastered_words, show_word_count, audio_replay_count, progress_data, difficulty_data, session_data, streak_data, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `)
     stmt.run(
       req.params.userId,
@@ -557,6 +680,8 @@ app.post('/api/analytics/:userId', (req, res) => {
       average_accuracy,
       average_session_time,
       mastered_words,
+      show_word_count ?? 0,
+      audio_replay_count ?? 0,
       progress_data ? JSON.stringify(progress_data) : null,
       difficulty_data ? JSON.stringify(difficulty_data) : null,
       session_data ? JSON.stringify(session_data) : null,
@@ -565,6 +690,72 @@ app.post('/api/analytics/:userId', (req, res) => {
     res.json({ success: true })
   } catch (error) {
     res.status(500).json({ error: 'Failed to save analytics data' })
+  }
+})
+
+// User settings endpoints
+app.get('/api/settings/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_settings WHERE user_id = ?')
+    const settings = stmt.get(req.params.userId) as any
+    if (settings) {
+      res.json({
+        user_id: settings.user_id,
+        auto_speak_enabled: !!settings.auto_speak_enabled,
+        speech_rate: settings.speech_rate ?? 0.8,
+        speech_pitch: settings.speech_pitch ?? 1.0,
+        speech_spell_out: !!settings.speech_spell_out,
+        use_puter_tts: settings.use_puter_tts === null || settings.use_puter_tts === undefined ? true : !!settings.use_puter_tts,
+        puter_engine: settings.puter_engine ?? 'neural',
+        puter_voice: settings.puter_voice ?? null,
+        speech_voice: settings.speech_voice ?? null,
+        test_show_duration: settings.test_show_duration ?? 3,
+        test_answer_time_limit: settings.test_answer_time_limit ?? 0
+      })
+    } else {
+      res.json({
+        user_id: req.params.userId,
+        auto_speak_enabled: true,
+        speech_rate: 0.8,
+        speech_pitch: 1.0,
+        speech_spell_out: false,
+        use_puter_tts: true,
+        puter_engine: 'neural',
+        puter_voice: null,
+        speech_voice: null,
+        test_show_duration: 3,
+        test_answer_time_limit: 0
+      })
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get user settings' })
+  }
+})
+
+app.post('/api/settings/:userId', (req, res) => {
+  try {
+    const { auto_speak_enabled, speech_rate, speech_pitch, speech_spell_out, use_puter_tts, puter_engine, puter_voice, speech_voice, test_show_duration, test_answer_time_limit } = req.body
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO user_settings
+      (user_id, auto_speak_enabled, speech_rate, speech_pitch, speech_spell_out, use_puter_tts, puter_engine, puter_voice, speech_voice, test_show_duration, test_answer_time_limit, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `)
+    stmt.run(
+      req.params.userId,
+      auto_speak_enabled ? 1 : 0,
+      speech_rate ?? 0.8,
+      speech_pitch ?? 1.0,
+      speech_spell_out ? 1 : 0,
+      use_puter_tts ? 1 : 0,
+      puter_engine ?? 'standard',
+      puter_voice ?? null,
+      speech_voice ?? null,
+      test_show_duration ?? 3,
+      test_answer_time_limit ?? 0
+    )
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save user settings' })
   }
 })
 

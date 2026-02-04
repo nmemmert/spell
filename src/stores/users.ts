@@ -71,7 +71,10 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  const updateUser = async (id: number, updates: Partial<Pick<User, 'email' | 'name' | 'role'>>): Promise<User | null> => {
+  const updateUser = async (
+    id: number,
+    updates: Partial<Pick<User, 'email' | 'name' | 'role'>> & { password?: string }
+  ): Promise<User | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/users/${id}`, {
         method: 'PUT',

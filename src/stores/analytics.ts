@@ -10,6 +10,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const averageAccuracy = ref(0)
   const averageSessionTime = ref(0)
   const masteredWords = ref(0)
+  const showWordCount = ref(0)
+  const audioReplayCount = ref(0)
 
   const progressData = ref({
     labels: [],
@@ -81,10 +83,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
       const response = await fetch(`${API_BASE}/api/analytics/${userId}`)
       if (response.ok) {
         const data = await response.json()
-        totalSessions.value = data.total_sessions || 45
-        averageAccuracy.value = data.average_accuracy || 78
-        averageSessionTime.value = data.average_session_time || 12
-        masteredWords.value = data.mastered_words || 234
+        totalSessions.value = data.total_sessions ?? 0
+        averageAccuracy.value = data.average_accuracy ?? 0
+        averageSessionTime.value = data.average_session_time ?? 0
+        masteredWords.value = data.mastered_words ?? 0
+        showWordCount.value = data.show_word_count ?? 0
+        audioReplayCount.value = data.audio_replay_count ?? 0
         
         if (data.progress_data) progressData.value = data.progress_data
         if (data.difficulty_data) difficultyData.value = data.difficulty_data
@@ -106,6 +110,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
           average_accuracy: averageAccuracy.value,
           average_session_time: averageSessionTime.value,
           mastered_words: masteredWords.value,
+          show_word_count: showWordCount.value,
+          audio_replay_count: audioReplayCount.value,
           progress_data: progressData.value,
           difficulty_data: difficultyData.value,
           session_data: sessionData.value,
@@ -122,6 +128,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     averageAccuracy.value = 0
     averageSessionTime.value = 0
     masteredWords.value = 0
+    showWordCount.value = 0
+    audioReplayCount.value = 0
 
     progressData.value = {
       labels: [],
@@ -194,6 +202,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     averageAccuracy,
     averageSessionTime,
     masteredWords,
+    showWordCount,
+    audioReplayCount,
     progressData,
     difficultyData,
     sessionData,

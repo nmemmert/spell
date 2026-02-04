@@ -148,12 +148,14 @@
               <input
                 v-model="userForm.password"
                 type="password"
-                required
+                :required="!editingUser"
                 minlength="6"
-                placeholder="Minimum 6 characters"
+                :placeholder="editingUser ? 'Leave blank to keep current password' : 'Minimum 6 characters'"
                 class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
               />
-              <p class="mt-1 text-sm text-gray-500">Password must be at least 6 characters long</p>
+              <p class="mt-1 text-sm text-gray-500">
+                {{ editingUser ? 'Leave blank to keep the current password.' : 'Password must be at least 6 characters long.' }}
+              </p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700">Role</label>
@@ -274,6 +276,8 @@ import { useSpacedRepetitionStore } from '../stores/spacedRepetition'
 import { useAuthStore } from '../stores/auth'
 import type { User, UserRole } from '../stores/auth'
 
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
+
 const usersStore = useUsersStore()
 const gamificationStore = useGamificationStore()
 const spacedRepetitionStore = useSpacedRepetitionStore()
@@ -347,7 +351,15 @@ const deleteUser = (userId: number) => {
 
 const saveUser = () => {
   if (editingUser.value) {
-    usersStore.updateUser(editingUser.value.id, userForm.value)
+    const updates: { email: string; name: string; role: UserRole; password?: string } = {
+      name: userForm.value.name,
+      email: userForm.value.email,
+      role: userForm.value.role
+    }
+    if (userForm.value.password) {
+      updates.password = userForm.value.password
+    }
+    usersStore.updateUser(editingUser.value.id, updates)
     editingUser.value = null
   } else {
     usersStore.addUser(userForm.value)
@@ -384,51 +396,54 @@ const closeResetModal = () => {
   }
 }
 
-const confirmReset = () => {
+const resetUserData = async (userId: number, dataType: string) => {
+  await fetch(`${API_BASE}/api/reset/${userId}/${dataType}`, { method: 'POST' })
+}
+
+const confirmReset = async () => {
   if (!selectedUser.value || !hasSelectedResetOptions.value) return
 
   const confirmMessage = `Are you sure you want to reset the selected data for ${selectedUser.value.name}? This action cannot be undone.`
   if (!confirm(confirmMessage)) return
 
-  // Reset achievements and badges
+  const userId = selectedUser.value.id
+
   if (resetOptions.value.achievements) {
-    gamificationStore.resetAchievements()
+    await resetUserData(userId, 'achievements')
   }
 
-  // Reset gamification data
   if (resetOptions.value.gamification) {
-    gamificationStore.resetGamification()
-    gamificationStore.resetLeaderboard()
+    await resetUserData(userId, 'gamification')
   }
 
-  // Reset analytics data (currently stored in localStorage/sessionStorage)
   if (resetOptions.value.analytics) {
-    resetAnalyticsData()
+    await resetUserData(userId, 'analytics')
   }
 
-  // Reset spaced repetition data
   if (resetOptions.value.spacedRepetition) {
-    spacedRepetitionStore.resetSpacedRepetition()
+    await resetUserData(userId, 'spaced-repetition')
+  }
+
+  if (currentUser.value?.id === userId) {
+    if (resetOptions.value.achievements) {
+      gamificationStore.resetAchievements()
+    }
+    if (resetOptions.value.gamification) {
+      gamificationStore.resetGamification()
+      gamificationStore.resetLeaderboard()
+    }
+    if (resetOptions.value.analytics) {
+      window.dispatchEvent(new CustomEvent('analytics-reset'))
+    }
+    if (resetOptions.value.spacedRepetition) {
+      spacedRepetitionStore.resetSpacedRepetition()
+    }
   }
 
   closeResetModal()
   alert(`Data reset completed for ${selectedUser.value.name}`)
 }
 
-const resetAnalyticsData = () => {
-  // Clear analytics data from localStorage
-  localStorage.removeItem('analytics_sessions')
-  localStorage.removeItem('analytics_accuracy')
-  localStorage.removeItem('analytics_session_time')
-  localStorage.removeItem('analytics_mastered_words')
-  localStorage.removeItem('analytics_progress_data')
-  localStorage.removeItem('analytics_difficulty_data')
-  localStorage.removeItem('analytics_session_data')
-  localStorage.removeItem('analytics_streak_data')
-
-  // Dispatch custom event to notify analytics component
-  window.dispatchEvent(new CustomEvent('analytics-reset'))
-}
 </script>
 
 <style scoped>
